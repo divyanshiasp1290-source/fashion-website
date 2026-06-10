@@ -1,0 +1,92 @@
+@import url("https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@300;400;500;600&family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: #fbf8f1;
+  font-size: 82.5%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #fbf8f1;
+  color: #080706;
+  font-family: "Azeret Mono", "Helvetica Neue", Arial, sans-serif;
+  font-size: 9.5px;
+  line-height: 1.55;
+  text-rendering: geometricPrecision;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 78%;
+  }
+
+  body {
+    font-size: 9px;
+  }
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  display: block;
+}
+
+::selection {
+  background: #11100e;
+  color: #f7f1e8;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #e9ddcc;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #282522;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  p,
+  li,
+  input,
+  textarea,
+  select,
+  button {
+    letter-spacing: 0;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

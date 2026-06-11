@@ -3,6 +3,8 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Heart,
   Menu,
   Minus,
@@ -13,8 +15,8 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { collections, navGroups, policies, products, type Product } from "./data/catalog";
+import { useEffect, useMemo, useState } from "react";
+import { collections, policies, products, type Product } from "./data/catalog";
 import { cx, formatMoney, getPrimaryProduct } from "./utils";
 
 type Page = "home" | "collection" | "product" | "lookbook" | "about" | "contact" | "search" | "wishlist" | "account" | "cart";
@@ -32,6 +34,95 @@ const pageLinks: Array<{ page: Page; label: string }> = [
   { page: "about", label: "About" },
   { page: "contact", label: "Contact" },
 ];
+
+type MenuColumn = {
+  title: string;
+  items: string[];
+};
+
+type ShopMenu = {
+  label: string;
+  page: Page;
+  columns: MenuColumn[];
+  hero?: string;
+};
+
+const shopifyMenus: ShopMenu[] = [
+  {
+    label: "New Arrivals",
+    page: "collection",
+    hero: "Spring Summer SS26",
+    columns: [
+      { title: "New Season", items: ["Women", "Men", "Bags", "Accessories"] },
+      { title: "Highlights", items: ["Best Sellers", "Campaign Picks", "New Drops"] },
+    ],
+  },
+  {
+    label: "Rockstud",
+    page: "collection",
+    hero: "Icon wardrobe edits",
+    columns: [
+      { title: "Shoes", items: ["Sandals", "Pumps", "Sneakers"] },
+      { title: "Bags", items: ["Rockstud Bags", "Clutches", "Mini Bags"] },
+    ],
+  },
+  {
+    label: "Women",
+    page: "collection",
+    hero: "Women's ready to wear",
+    columns: [
+      { title: "Ready To Wear", items: ["New Arrivals", "Dresses", "Jackets", "Trousers"] },
+      { title: "Accessories", items: ["Bags", "Shoes", "Jewellery"] },
+    ],
+  },
+  {
+    label: "Men",
+    page: "collection",
+    hero: "Men's ready to wear",
+    columns: [
+      { title: "Ready To Wear", items: ["Jackets", "Knitwear", "Trousers", "Shirts"] },
+      { title: "Accessories", items: ["Shoes", "Bags", "Small Leather Goods"] },
+    ],
+  },
+  {
+    label: "Bags",
+    page: "collection",
+    hero: "Carryall signatures",
+    columns: [
+      { title: "Shop By Style", items: ["Totes", "Shoulder Bags", "Mini Bags", "Travel"] },
+      { title: "Signature", items: ["Rockstud", "VLogo", "Quilted"] },
+    ],
+  },
+  {
+    label: "Gifts",
+    page: "collection",
+    hero: "Maison gifting",
+    columns: [
+      { title: "Gifts For Her", items: ["Bags", "Jewellery", "Small Leather Goods"] },
+      { title: "Gifts For Him", items: ["Shoes", "Accessories", "Fragrances"] },
+    ],
+  },
+  {
+    label: "Fragrances",
+    page: "collection",
+    hero: "Beauty ready category",
+    columns: [
+      { title: "Fragrances", items: ["For Her", "For Him", "Candles", "Gift Sets"] },
+      { title: "Best Sellers", items: ["Signature Scents", "New Releases"] },
+    ],
+  },
+  {
+    label: "V-Universe",
+    page: "lookbook",
+    hero: "Brand universe",
+    columns: [
+      { title: "Explore", items: ["Campaigns", "Stories", "Events"] },
+      { title: "Discovery", items: ["Maison", "Shows", "Heritage"] },
+    ],
+  },
+];
+
+const shopifyMenuMap = Object.fromEntries(shopifyMenus.map((menu) => [menu.label, menu])) as Record<ShopMenu["label"], ShopMenu>;
 
 const easeOutExpo = [0.16, 1, 0.3, 1] as const;
 
@@ -134,49 +225,54 @@ function Navigation({
   onSearch: () => void;
   onCart: () => void;
 }) {
-  const [mega, setMega] = useState<keyof typeof navGroups | null>(null);
+  const [mega, setMega] = useState<ShopMenu["label"] | null>(null);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-ivory/15 bg-ink/35 text-ivory backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-8">
-        <button className="lg:hidden" onClick={onMenu} aria-label="Open menu">
-          <Menu size={22} />
-        </button>
-        <button onClick={() => go("home")} className="font-display text-base uppercase tracking-[0.22em] sm:text-lg">
-          Maison Makeeva
-        </button>
-        <nav className="hidden items-center gap-8 text-[11px] uppercase tracking-wideLuxury lg:flex">
-          {(["Men", "Women"] as const).map((group) => (
-            <button key={group} onMouseEnter={() => setMega(group)} className="flex items-center gap-1 py-6">
-              {group} <ChevronDown size={13} />
-            </button>
-          ))}
-          {pageLinks.slice(1).map((link) => (
-            <button
-              key={link.page}
-              onClick={() => go(link.page)}
-              className={cx("py-6 transition", page === link.page && "text-stone")}
-            >
-              {link.label}
-            </button>
-          ))}
-        </nav>
-        <div className="flex items-center gap-3">
-          <IconButton label="Search" onClick={onSearch}>
-            <Search size={18} />
-          </IconButton>
-          <IconButton label="Account" onClick={() => go("account")} hideMobile>
-            <User size={18} />
-          </IconButton>
-          <IconButton label={`Wishlist ${wishlistCount}`} onClick={() => go("wishlist")} hideMobile>
-            <Heart size={18} />
-          </IconButton>
-          <button onClick={onCart} className="relative p-2" aria-label="Open cart">
-            <ShoppingBag size={19} />
-            <span className="absolute -right-1 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-ivory px-1 text-[10px] text-ink">
-              {cartCount}
-            </span>
+    <header className="fixed inset-x-0 top-0 z-50">
+      <div className="border-b border-white/10 bg-ink/80 text-ivory">
+        <div className="mx-auto flex h-12 max-w-[1600px] items-center justify-between gap-3 px-4 text-[11px] uppercase tracking-[0.24em] sm:gap-5">
+          <p className="truncate">Maison Makeeva — Spring Summer SS26</p>
+          <button onClick={() => go("collection")} className="text-[11px] uppercase tracking-[0.24em] transition hover:text-stone">
+            Shop Now
           </button>
+        </div>
+      </div>
+      <div className="border-b border-ivory/15 bg-ink/35 text-ivory backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-8">
+          <div className="flex items-center gap-3">
+            <IconButton label="Account" onClick={() => go("account")}> 
+              <User size={18} />
+            </IconButton>
+            <IconButton label="Search" onClick={onSearch}>
+              <Search size={18} />
+            </IconButton>
+          </div>
+          <button onClick={() => go("home")} className="font-display text-base uppercase tracking-[0.22em] sm:text-lg">
+            Maison Makeeva
+          </button>
+          <div className="flex items-center gap-3">
+            <IconButton label={`Wishlist ${wishlistCount}`} onClick={() => go("wishlist")}>
+              <Heart size={18} />
+            </IconButton>
+            <button onClick={onCart} className="relative p-2" aria-label="Open cart">
+              <ShoppingBag size={19} />
+              <span className="absolute -right-1 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-ivory px-1 text-[10px] text-ink">
+                {cartCount}
+              </span>
+            </button>
+            <button className="lg:hidden" onClick={onMenu} aria-label="Open menu">
+              <Menu size={22} />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="hidden lg:block border-b border-ivory/15 bg-ink/35 text-ivory">
+        <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-center gap-8 px-4 text-[11px] uppercase tracking-[0.24em]">
+          {shopifyMenus.map((menu) => (
+            <button key={menu.label} onMouseEnter={() => setMega(menu.label)} className="transition hover:text-stone">
+              {menu.label}
+            </button>
+          ))}
         </div>
       </div>
       <AnimatePresence>
@@ -192,14 +288,33 @@ function Navigation({
               <div>
                 <p className="mb-5 text-xs uppercase tracking-wideLuxury text-stone">{mega}</p>
                 <div className="grid grid-cols-2 gap-x-10 gap-y-3">
-                  {navGroups[mega].map((item) => (
-                    <button key={item} onClick={() => go("collection")} className="text-left font-display text-lg transition hover:text-stone">
+                  {shopifyMenuMap[mega].columns.flatMap((column) => column.items).map((item) => (
+                    <button key={item} onClick={() => go("collection")} className="text-left font-display text-lg text-ivory transition-colors duration-150 hover:text-stone">
                       {item}
                     </button>
                   ))}
                 </div>
               </div>
-              <MegaEditorial go={go} />
+              <div className="grid grid-cols-2 gap-8">
+                {shopifyMenuMap[mega].columns.map((column) => (
+                  <div key={column.title}>
+                    <p className="mb-4 text-xs uppercase tracking-wideLuxury text-stone">{column.title}</p>
+                    <div className="space-y-3">
+                      {column.items.map((item) => (
+                        <button key={item} onClick={() => go("collection")} className="block text-left text-base text-ivory transition-colors duration-150 hover:text-stone">
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded bg-parchment p-6 text-ink">
+                  <p className="mb-4 text-xs uppercase tracking-wideLuxury text-stone">{shopifyMenuMap[mega].hero}</p>
+                  <button onClick={() => go(shopifyMenuMap[mega].page)} className="font-display text-lg uppercase tracking-[0.18em]">
+                    Discover
+                  </button>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -271,18 +386,15 @@ function Hero({ go }: { go: (page: Page) => void }) {
         alt="Maison Makeeva premium luxury hero"
         className="absolute inset-0 h-[115%] w-full object-cover object-[50%_18%] opacity-90"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-ink/45 via-ink/10 to-ink/75" />
-      <motion.div variants={fadeUp} initial="hidden" animate="show" className="relative z-10 flex min-h-[92vh] flex-col justify-end px-5 pb-16 sm:px-10 lg:px-16">
-        <p className="mb-4 text-xs uppercase tracking-wideLuxury text-stone">New arrivals</p>
-        <h1 className="max-w-5xl font-display text-[11.5vw] uppercase leading-[0.9] sm:text-[7.2vw] lg:text-[5vw]">
-          Spring Summer SS26
-        </h1>
-        <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <p className="max-w-xl font-editorial text-base leading-7 text-ivory/85">
-            Ready to wear collection shaped by cultural artistry, precise garment fit, and Maison Makeeva’s unmistakable MM identity.
-          </p>
-          <button onClick={() => go("collection")} className="group flex w-fit items-center gap-3 border-b border-ivory pb-2 text-xs uppercase tracking-wideLuxury">
-            Explore <ArrowRight className="transition group-hover:translate-x-1" size={17} />
+      <div className="absolute inset-0 bg-gradient-to-b from-ink/30 via-ink/10 to-ink/95" />
+      <motion.div variants={fadeUp} initial="hidden" animate="show" className="relative z-10 flex min-h-[92vh] flex-col justify-center px-5 sm:px-10 lg:px-16">
+        <div className="mx-auto flex w-full max-w-4xl flex-col items-center justify-center text-center">
+          <p className="text-[9px] uppercase tracking-[0.24em] text-white/80">Maison Makeeva</p>
+          <h1 className="mt-3 font-display text-[7vw] uppercase leading-[0.9] tracking-[0.02em] text-white sm:text-[4.5rem] lg:text-[5.5rem]">
+            Maison Makeeva — Spring Summer SS26
+          </h1>
+          <button onClick={() => go("collection")} className="mt-8 rounded-none border border-white/20 bg-black/70 px-8 py-3 text-[11px] uppercase tracking-[0.22em] text-white transition hover:bg-black">
+            Explore
           </button>
         </div>
       </motion.div>
@@ -293,7 +405,7 @@ function Hero({ go }: { go: (page: Page) => void }) {
 function FeaturedCollections({ go }: { go: (page: Page) => void }) {
   return (
     <Section eyebrow="Our campaigns & collections" title="A house wardrobe with campaign gravity.">
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-1 sm:gap-2 lg:grid-cols-3">
         {collections.map((collection, index) => (
           <motion.button
             key={collection.handle}
@@ -302,14 +414,18 @@ function FeaturedCollections({ go }: { go: (page: Page) => void }) {
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
             onClick={() => go("collection")}
-            className={cx("group text-left", index === 1 && "lg:mt-20")}
+            className={cx("group relative overflow-hidden text-left", index === 1 && "lg:mt-20")}
           >
-            <div className="aspect-[4/5] overflow-hidden bg-parchment">
+            <div className="aspect-[1/1] overflow-hidden bg-parchment">
               <img src={collection.image} alt={collection.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
             </div>
-            <p className="mt-5 text-xs uppercase tracking-wideLuxury text-taupe">{collection.season}</p>
-            <h3 className="mt-2 font-display text-2xl leading-none">{collection.title}</h3>
-            <p className="mt-4 max-w-md text-xs leading-6 text-graphite/70">{collection.description}</p>
+            <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-ink/70 via-ink/30 to-transparent p-4">
+              <p className="text-xs uppercase tracking-wideLuxury text-ivory">{collection.season}</p>
+              <h3 className="font-display text-lg uppercase leading-tight">{collection.title}</h3>
+              <button onClick={() => go("collection")} className="mt-2 text-[11px] uppercase tracking-[0.18em] text-ivory">
+                Discover More
+              </button>
+            </div>
           </motion.button>
         ))}
       </div>
@@ -881,17 +997,32 @@ function MobileMenu({ open, onClose, go }: { open: boolean; onClose: () => void;
   return (
     <AnimatePresence>
       {open && (
-        <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ duration: 0.55, ease: easeOutExpo }} className="fixed inset-0 z-[80] bg-ink p-5 text-ivory">
+        <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ duration: 0.55, ease: easeOutExpo }} className="fixed inset-0 z-[80] overflow-y-auto bg-ink p-5 text-ivory">
           <div className="flex items-center justify-between">
             <p className="font-display text-lg uppercase tracking-[0.18em]">Maison Makeeva</p>
             <button onClick={onClose} aria-label="Close menu"><X /></button>
           </div>
-          <div className="mt-12 grid gap-5">
-            {[...pageLinks, { page: "search" as Page, label: "Search" }, { page: "wishlist" as Page, label: "Wishlist" }, { page: "cart" as Page, label: "Cart" }].map((link) => (
-              <button key={link.page} onClick={() => go(link.page)} className="text-left font-display text-2xl uppercase">
-                {link.label}
-              </button>
+          <div className="mt-8 space-y-8">
+            {shopifyMenus.map((menu) => (
+              <div key={menu.label} className="border-b border-ivory/15 pb-6">
+                <button onClick={() => { onClose(); go(menu.page); }} className="text-left font-display text-2xl uppercase tracking-[0.18em]">
+                  {menu.label}
+                </button>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {menu.columns.flatMap((column) => column.items).slice(0, 6).map((item) => (
+                    <button key={`${menu.label}-${item}`} onClick={() => { onClose(); go(menu.page); }} className="block text-left text-sm uppercase tracking-wideLuxury text-stone transition hover:text-ivory">
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
+          </div>
+          <div className="mt-10 space-y-4 border-t border-ivory/15 pt-6 text-sm uppercase tracking-wideLuxury text-taupe">
+            <button onClick={() => { onClose(); go("search"); }} className="block text-left">Search</button>
+            <button onClick={() => { onClose(); go("wishlist"); }} className="block text-left">Wishlist</button>
+            <button onClick={() => { onClose(); go("cart"); }} className="block text-left">Cart</button>
+            <button onClick={() => { onClose(); go("account"); }} className="block text-left">Account</button>
           </div>
         </motion.div>
       )}

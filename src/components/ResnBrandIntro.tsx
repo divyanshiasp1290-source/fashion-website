@@ -21,11 +21,11 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
         current = 100;
         setProgress(100);
         clearInterval(interval);
-        setTimeout(() => triggerExit(), 700);
+        setTimeout(() => triggerExit(), 1100);
       } else {
         setProgress(current);
       }
-    }, 75);
+    }, 120);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === " ") {

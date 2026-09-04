@@ -19,7 +19,6 @@ import {
   X,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import { AudioAtmosphere } from "./components/AudioAtmosphere";
 import { CuratorModal } from "./components/CuratorModal";
 import { GarmentAnatomy } from "./components/GarmentAnatomy";
 import { MagneticCursor } from "./components/MagneticCursor";
@@ -304,17 +303,16 @@ function Navigation({
     <header className="fixed inset-x-0 top-0 z-50">
       {/* Top Archival Runway Ticker Strip */}
       <div className="border-b border-white/10 bg-ink/90 text-ivory">
-        <div className="mx-auto flex h-10 max-w-[1600px] items-center justify-between gap-3 px-4 text-[10px] uppercase tracking-[0.22em] font-mono sm:px-8">
+        <div className="mx-auto flex h-10 max-w-[1600px] items-center justify-between gap-3 px-4 text-[11px] uppercase tracking-[0.22em] font-mono sm:px-8">
           <div className="flex items-center gap-3 truncate">
             <span className="h-1.5 w-1.5 rounded-full bg-chartreuse animate-pulse" />
             <span className="truncate">PARIS ARCHIVE // SS26 PRESENTATION // CULTURAL ARTISTRY</span>
           </div>
 
           <div className="flex items-center gap-4">
-            <AudioAtmosphere />
             <button
               onClick={() => go("collection")}
-              className="text-[10px] uppercase tracking-[0.22em] text-chartreuse transition hover:underline"
+              className="text-[11px] uppercase tracking-[0.22em] text-chartreuse transition hover:underline"
             >
               Exhibition Catalog →
             </button>
@@ -338,7 +336,7 @@ function Navigation({
             onClick={() => go("home")}
             className="flex flex-col items-center group text-center"
           >
-            <span className="font-display text-base uppercase tracking-[0.16em] sm:text-lg transition-transform group-hover:scale-105">
+            <span className="font-display text-lg uppercase tracking-[0.16em] sm:text-xl transition-transform group-hover:scale-105">
               MM / Makeeva
             </span>
             <span className="font-mono text-[8px] uppercase tracking-[0.28em] text-chartreuse opacity-80">
@@ -353,7 +351,7 @@ function Navigation({
 
             <button
               onClick={onCart}
-              className="relative flex items-center gap-2 border border-ivory/25 px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-ivory transition hover:border-chartreuse hover:text-chartreuse"
+              className="relative flex items-center gap-2 border border-ivory/25 px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-ivory transition hover:border-chartreuse hover:text-chartreuse"
               aria-label="Open cart bag"
             >
               <ShoppingBag size={15} />
@@ -372,7 +370,7 @@ function Navigation({
 
       {/* Desktop Curated Mega-Menu Links */}
       <div className="hidden lg:block border-b border-ivory/15 bg-ink/75 text-ivory backdrop-blur-md">
-        <div className="mx-auto flex h-12 max-w-[1600px] items-center justify-center gap-8 px-4 font-mono text-[10px] uppercase tracking-[0.24em]">
+        <div className="mx-auto flex h-12 max-w-[1600px] items-center justify-center gap-8 px-4 font-mono text-xs uppercase tracking-[0.24em]">
           {shopifyMenus.map((menu) => (
             <button
               key={menu.label}
@@ -553,21 +551,27 @@ function HomePage({
       />
 
       {/* The Living Archive / Garment Anatomy Section */}
-      <GarmentAnatomy
-        featuredProduct={primaryProduct}
-        onSelectProduct={(p) => go("product", p)}
-        onAddToCart={addToCart}
-      />
+      <Reveal>
+        <GarmentAnatomy
+          featuredProduct={primaryProduct}
+          onSelectProduct={(p) => go("product", p)}
+          onAddToCart={addToCart}
+        />
+      </Reveal>
 
       {/* Full-Screen 3D Editorial Campaign Chamber */}
-      <EditorialCampaign go={go} />
+      <Reveal>
+        <EditorialCampaign go={go} />
+      </Reveal>
 
       {/* Runway Lookbook with Interactive Garment Hotspots */}
-      <RunwayLookbook
-        onSelectProduct={(p) => go("product", p)}
-        onAddToCart={addToCart}
-        onOpenCurator={onCuratorInspect}
-      />
+      <Reveal>
+        <RunwayLookbook
+          onSelectProduct={(p) => go("product", p)}
+          onAddToCart={addToCart}
+          onOpenCurator={onCuratorInspect}
+        />
+      </Reveal>
 
       {/* Best Sellers Exhibition */}
       <SalonExhibition
@@ -582,13 +586,21 @@ function HomePage({
         onCuratorInspect={onCuratorInspect}
       />
 
-      <BrandPhilosophy />
+      <Reveal>
+        <BrandPhilosophy />
+      </Reveal>
 
       {/* Full-Screen 3D Visual Gallery Walkway */}
-      <FashionGallery />
+      <Reveal>
+        <FashionGallery />
+      </Reveal>
 
-      <Newsletter />
-      <PolicyStrip />
+      <Reveal>
+        <Newsletter />
+      </Reveal>
+      <Reveal>
+        <PolicyStrip />
+      </Reveal>
     </>
   );
 }
@@ -1610,8 +1622,6 @@ function CartContent({
   compact?: boolean;
 }) {
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
-  const freeShippingThreshold = 300;
-  const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
 
   const update = (item: CartItem, qty: number) =>
     setCart((items) => (qty <= 0 ? items.filter((entry) => entry !== item) : items.map((entry) => (entry === item ? { ...entry, qty } : entry))));
@@ -1622,21 +1632,6 @@ function CartContent({
   return (
     <div className={cx("grid gap-10", compact ? "grid-cols-1 gap-8" : "lg:grid-cols-[1fr_420px]")}>
       <div className="space-y-5">
-        {/* Free Shipping Progress Bar */}
-        <div className="border border-ink/15 bg-ivory p-4 font-mono text-xs">
-          <div className="flex justify-between">
-            <span className="text-taupe uppercase text-[10px]">Courier Status</span>
-            <span className="font-semibold text-ink">
-              {subtotal >= freeShippingThreshold
-                ? "Complimentary Express Shipping Unlocked"
-                : `Add ${formatMoney(freeShippingThreshold - subtotal)} for Complimentary Courier`}
-            </span>
-          </div>
-          <div className="mt-2 h-1.5 w-full bg-ink/15 overflow-hidden">
-            <div className="h-full bg-chartreuse transition-all duration-500" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-
         {/* Items list */}
         {cart.map((item) => (
           <div
@@ -1672,10 +1667,6 @@ function CartContent({
           <div className="flex justify-between">
             <span>Subtotal</span>
             <span className="font-semibold text-sm">{formatMoney(subtotal)}</span>
-          </div>
-          <div className="flex justify-between text-taupe">
-            <span>Express Courier</span>
-            <span>{subtotal >= freeShippingThreshold ? "Complimentary" : "€25.00"}</span>
           </div>
           <input
             placeholder="Atelier Voucher Code"
@@ -1779,6 +1770,19 @@ function PolicyStrip() {
         </div>
       ))}
     </section>
+  );
+}
+
+function Reveal({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.12, margin: "0px 0px -8%" }}
+      transition={{ duration: 0.8, ease: easeOutExpo }}
+    >
+      {children}
+    </motion.div>
   );
 }
 

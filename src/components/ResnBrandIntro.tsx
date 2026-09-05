@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { NoirIntroScene3D } from "./NoirIntroScene3D";
 
 type ResnBrandIntroProps = {
   onComplete: () => void;
@@ -12,20 +13,20 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
   const [isSplitting, setIsSplitting] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
-  // Precision Counter
+  // Fast, elegant precision counter that doesn't block shopping
   useEffect(() => {
     let current = 0;
     const interval = setInterval(() => {
-      current += Math.floor(Math.random() * 4) + 2;
+      current += Math.floor(Math.random() * 8) + 6;
       if (current >= 100) {
         current = 100;
         setProgress(100);
         clearInterval(interval);
-        setTimeout(() => triggerExit(), 1100);
+        setTimeout(() => triggerExit(), 400);
       } else {
         setProgress(current);
       }
-    }, 120);
+    }, 45);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === " ") {
@@ -46,7 +47,7 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
     setTimeout(() => {
       setIsFinished(true);
       onComplete();
-    }, 1150);
+    }, 750);
   };
 
   if (isFinished) return null;
@@ -61,32 +62,37 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
       <motion.div
         initial={{ y: 0 }}
         animate={{ y: isSplitting ? "-100%" : "0%" }}
-        transition={{ duration: 1.1, ease: easeOutExpo }}
-        className="absolute inset-x-0 top-0 h-1/2 bg-ink z-10 border-b border-ivory/15"
+        transition={{ duration: 0.75, ease: easeOutExpo }}
+        className="absolute inset-x-0 top-0 h-1/2 bg-ink z-10 border-b border-white/15"
       />
 
       {/* Bottom Split Curtain */}
       <motion.div
         initial={{ y: 0 }}
         animate={{ y: isSplitting ? "100%" : "0%" }}
-        transition={{ duration: 1.1, ease: easeOutExpo }}
-        className="absolute inset-x-0 bottom-0 h-1/2 bg-ink z-10 border-t border-ivory/15"
+        transition={{ duration: 0.75, ease: easeOutExpo }}
+        className="absolute inset-x-0 bottom-0 h-1/2 bg-ink z-10 border-t border-white/15"
       />
+
+      {/* 3D Pure Black Velvet Fabric Simulation + 3D Camera + Parallax + Lighting */}
+      <div className="absolute inset-0 z-[15] pointer-events-none">
+        <NoirIntroScene3D />
+      </div>
 
       {/* Center Cinematic Content */}
       <motion.div
         initial={{ opacity: 1 }}
-        animate={{ opacity: isSplitting ? 0 : 1, scale: isSplitting ? 1.05 : 1 }}
-        transition={{ duration: 0.5 }}
-        className="relative z-20 flex h-full w-full flex-col justify-between p-6 sm:p-12 text-ivory pointer-events-none"
+        animate={{ opacity: isSplitting ? 0 : 1, scale: isSplitting ? 1.04 : 1 }}
+        transition={{ duration: 0.35 }}
+        className="relative z-20 flex h-full w-full flex-col justify-between p-4 sm:p-12 text-white pointer-events-none"
       >
         {/* Telemetry Header */}
-        <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.24em] text-ivory/60 border-b border-ivory/10 pb-4">
-          <div className="flex items-center gap-3">
-            <span className="h-2 w-2 rounded-full bg-chartreuse animate-ping" />
-            <span>INITIALIZING ATELIER SALON // PARIS · ACCRA</span>
+        <div className="flex items-center justify-between font-mono text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] text-white/80 border-b border-white/10 pb-3 sm:pb-4 gap-2 font-medium">
+          <div className="flex items-center gap-2 sm:gap-3 truncate">
+            <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-chartreuse animate-ping shrink-0" />
+            <span className="truncate">HAUTE ATELIER // PARIS · ACCRA</span>
           </div>
-          <div className="hidden sm:block">
+          <div className="hidden md:block shrink-0">
             <span>LAT 48.8566° N · LON 2.3522° E</span>
           </div>
           <button
@@ -94,16 +100,17 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
               e.stopPropagation();
               triggerExit();
             }}
-            className="pointer-events-auto text-chartreuse hover:underline tracking-[0.2em]"
+            className="pointer-events-auto text-chartreuse hover:underline tracking-[0.16em] sm:tracking-[0.2em] shrink-0 font-bold p-1"
           >
-            SKIP INTRO [ESC]
+            <span className="hidden sm:inline">SKIP INTRO [ESC]</span>
+            <span className="sm:hidden">SKIP →</span>
           </button>
         </div>
 
         {/* Centerpiece: Self-Drawing Geometric MM Monogram & Kinetic Typography */}
-        <div className="mx-auto flex flex-col items-center justify-center text-center">
+        <div className="mx-auto flex flex-col items-center justify-center text-center px-2">
           {/* Animated SVG Monogram Vector */}
-          <div className="relative h-28 w-28 sm:h-36 sm:w-36 mb-6">
+          <div className="relative h-20 w-20 sm:h-36 sm:w-36 mb-4 sm:mb-6">
             <svg viewBox="0 0 120 120" className="h-full w-full">
               {/* Outer aperture circle */}
               <motion.circle
@@ -145,7 +152,7 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
               initial={{ y: 80 }}
               animate={{ y: 0 }}
               transition={{ duration: 0.9, delay: 0.15, ease: easeOutExpo }}
-              className="font-display text-4xl sm:text-6xl md:text-7xl uppercase tracking-[0.14em] text-white"
+              className="font-display text-2xl xs:text-3xl sm:text-6xl md:text-7xl uppercase tracking-[0.1em] sm:tracking-[0.14em] text-white"
             >
               Maison Makeeva
             </motion.h1>
@@ -155,21 +162,21 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.4 }}
-            className="mt-3 flex items-center gap-4"
+            className="mt-2 sm:mt-3 flex items-center gap-2 sm:gap-4"
           >
-            <span className="h-px w-8 bg-chartreuse" />
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-chartreuse font-semibold">
+            <span className="h-px w-4 sm:w-8 bg-chartreuse" />
+            <p className="font-mono text-xs uppercase tracking-[0.18em] sm:tracking-[0.24em] text-chartreuse font-semibold">
               Haute Monograph · Spring Summer SS26
             </p>
-            <span className="h-px w-8 bg-chartreuse" />
+            <span className="h-px w-4 sm:w-8 bg-chartreuse" />
           </motion.div>
         </div>
 
         {/* Footer: Resn-Style Numeric Precision Bar */}
-        <div className="border-t border-ivory/10 pt-4">
-          <div className="flex items-end justify-between font-mono text-xs text-ivory/80">
+        <div className="border-t border-white/10 pt-4">
+          <div className="flex items-end justify-between font-mono text-xs text-white/80">
             <div>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-taupe block">Loading Sequence</span>
+              <span className="text-xs uppercase tracking-[0.18em] text-white/60 block font-medium">Loading Sequence</span>
               <span className="text-chartreuse font-bold">CALIBRATING STAGE 3D SCENE</span>
             </div>
 
@@ -178,12 +185,12 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
               <span className="font-display text-4xl sm:text-5xl font-bold text-chartreuse leading-none">
                 {progress < 10 ? `0${progress}` : progress}
               </span>
-              <span className="font-mono text-xs text-ivory/60 ml-1">%</span>
+              <span className="font-mono text-xs text-white/60 ml-1">%</span>
             </div>
           </div>
 
           {/* Progress hairline track */}
-          <div className="mt-3 h-1 w-full bg-ivory/15 overflow-hidden">
+          <div className="mt-3 h-1 w-full bg-white/15 overflow-hidden">
             <motion.div
               className="h-full bg-chartreuse"
               style={{ width: `${progress}%` }}

@@ -1,13 +1,17 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUpRight, Compass, ShieldCheck, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { AnimatePresence, motion, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { ArrowUpRight, Sparkles } from "lucide-react";
+import { Suspense, lazy, useRef, useState } from "react";
 import type { Product } from "../data/catalog";
 import { cx, formatMoney } from "../utils";
 
+const AtelierFabricScene = lazy(() =>
+  import("./AtelierFabricScene").then((mod) => ({ default: mod.AtelierFabricScene }))
+);
+
 type Hotspot = {
   id: string;
-  x: number; // percentage from left
-  y: number; // percentage from top
+  x: number;
+  y: number;
   title: string;
   spec: string;
   description: string;
@@ -28,7 +32,7 @@ const HOTSPOTS: Hotspot[] = [
     y: 36,
     title: "DTS Monogram Screenprint",
     spec: "High-density Pigment Discharge",
-    description: "Original MM graphic code deeply embedded into the weave rather than printed on top, maintaining velvet softness.",
+    description: "Original MM graphic code deeply embedded into the weave rather than printed on top.",
   },
   {
     id: "fabric",
@@ -36,7 +40,7 @@ const HOTSPOTS: Hotspot[] = [
     y: 52,
     title: "300 GSM Stonewashed Denim",
     spec: "Heavyweight Custom Mill Weave",
-    description: "Artisanal deep-bleach stonewash treatment yielding one-of-a-kind marbling and drape across each individual set.",
+    description: "Artisanal deep-bleach stonewash treatment yielding one-of-a-kind marbling and drape.",
   },
   {
     id: "seam",
@@ -44,7 +48,7 @@ const HOTSPOTS: Hotspot[] = [
     y: 72,
     title: "Contour Seaming & Finish",
     spec: "Double-Needle Topstitch",
-    description: "Engineered curved seams along the lateral lines to elevate movement from athletic wear into architectural evening wear.",
+    description: "Engineered curved seams to elevate movement from athletic wear into architectural evening wear.",
   },
 ];
 
@@ -60,157 +64,141 @@ export function GarmentAnatomy({
   onAddToCart,
 }: GarmentAnatomyProps) {
   const [activeHotspot, setActiveHotspot] = useState<Hotspot>(HOTSPOTS[2]);
+  const [fabricMouse, setFabricMouse] = useState({ x: 0, y: 0 });
+  const sectionRef = useRef<HTMLElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "end start"],
+  });
+  const garmentY = useTransform(scrollYProgress, [0, 1], [40, -40]);
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFabricMouse({
+      x: (e.clientX - rect.left) / rect.width - 0.5,
+      y: (e.clientY - rect.top) / rect.height - 0.5,
+    });
+  };
 
   return (
-    <section className="relative overflow-hidden bg-ink py-20 text-ivory sm:py-28">
-      {/* Background Archival Grid */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-10"
-        style={{
-          backgroundImage:
-            "linear-gradient(#f5f3ed 1px, transparent 1px), linear-gradient(90deg, #f5f3ed 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-        }}
-      />
+    <section
+      ref={sectionRef}
+      className="relative overflow-hidden bg-ink py-20 text-ivory sm:py-28"
+      onPointerMove={handlePointerMove}
+      onPointerLeave={() => setFabricMouse({ x: 0, y: 0 })}
+    >
+      {/* Tertiary: fabric 3D — material storytelling */}
+      <div className="pointer-events-none absolute -right-[10%] top-0 hidden h-full w-[55%] opacity-30 lg:block">
+        <Suspense fallback={null}>
+          <AtelierFabricScene mouseX={fabricMouse.x} mouseY={fabricMouse.y} />
+        </Suspense>
+      </div>
 
-      <div className="relative mx-auto max-w-[1500px] px-5 sm:px-10 lg:px-16">
-        {/* Section Header */}
-        <div className="flex flex-col justify-between gap-6 border-b border-ivory/15 pb-8 md:flex-row md:items-end">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-chartreuse">
-              <Compass size={13} />
-              <span>Living Archive / Anatomy of Form</span>
-            </div>
-            <h2 className="mt-3 font-display text-3xl uppercase tracking-[-0.02em] sm:text-5xl">
-              Deconstructed Silhouette
-            </h2>
-          </div>
-          <p className="max-w-md font-editorial text-sm leading-relaxed text-ivory/70">
-            Every Maison Makeeva piece is built at the intersection of cultural artifact and technical garment. Click the architectural points to inspect construction specs.
+      <div className="relative mx-auto max-w-[1400px] px-5 sm:px-10 lg:px-16">
+        <div className="max-w-xl border-b border-ivory/15 pb-8">
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-white/80 font-semibold">
+            Craft & Construction
+          </p>
+          <h2 className="mt-3 font-display text-3xl uppercase tracking-[-0.02em] sm:text-4xl lg:text-5xl">
+            Anatomy of a silhouette
+          </h2>
+          <p className="mt-4 font-editorial text-base sm:text-lg leading-relaxed text-ivory/85">
+            Select a detail to explore material, technique, and proportion.
           </p>
         </div>
 
-        {/* Interactive Anatomy Stage */}
-        <div className="mt-12 grid items-center gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:gap-16">
-          {/* Garment Visual with Interactive Hotspots */}
-          <div className="relative mx-auto aspect-[3/4] w-full max-w-lg overflow-hidden border border-ivory/20 bg-graphite shadow-2xl sm:max-w-xl">
-            <img
-              src={featuredProduct.images[0]}
-              alt={featuredProduct.title}
-              className="h-full w-full object-cover filter contrast-[1.05]"
-            />
+        <div className="mt-12 grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+          {/* Primary: garment photograph */}
+          <motion.div style={{ y: garmentY }} className="relative mx-auto w-full max-w-md lg:max-w-none">
+            <div className="relative aspect-[3/4] overflow-hidden bg-graphite">
+              <img
+                src={featuredProduct.images[0]}
+                alt={featuredProduct.title}
+                className="h-full w-full object-cover"
+                data-cursor="view"
+                data-cursor-text="DETAIL"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink/50 via-transparent to-transparent" />
 
-            {/* Subtle Vignette & Spec Overlays */}
-            <div className="pointer-events-none absolute inset-0 bg-radial-gradient from-transparent via-transparent to-ink/40" />
-
-            {/* Coordinates Badge */}
-            <div className="absolute top-4 left-4 rounded bg-ink/75 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ivory/80 backdrop-blur-md">
-              OBJ // {featuredProduct.handle.toUpperCase()}
-            </div>
-
-            {/* Hotspots */}
-            {HOTSPOTS.map((spot) => {
-              const isActive = activeHotspot.id === spot.id;
-              return (
-                <button
-                  key={spot.id}
-                  onClick={() => setActiveHotspot(spot)}
-                  style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
-                  className="group absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none"
-                  aria-label={`Inspect ${spot.title}`}
-                >
-                  <span
-                    className={cx(
-                      "relative flex h-7 w-7 items-center justify-center rounded-full border transition-all duration-300",
-                      isActive
-                        ? "border-chartreuse bg-ink shadow-[0_0_15px_rgba(214,255,63,0.6)]"
-                        : "border-ivory/60 bg-ink/70 hover:border-chartreuse"
-                    )}
+              {HOTSPOTS.map((spot) => {
+                const isActive = activeHotspot.id === spot.id;
+                return (
+                  <button
+                    key={spot.id}
+                    onClick={() => setActiveHotspot(spot)}
+                    style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none"
+                    aria-label={`Inspect ${spot.title}`}
                   >
-                    {/* Pulsing ring */}
-                    {isActive && (
-                      <span className="absolute inset-0 -m-1 rounded-full border border-chartreuse animate-ping opacity-60" />
-                    )}
                     <span
                       className={cx(
-                        "h-2 w-2 rounded-full transition-colors duration-300",
-                        isActive ? "bg-chartreuse" : "bg-ivory group-hover:bg-chartreuse"
+                        "flex h-6 w-6 items-center justify-center rounded-full border transition-all duration-300",
+                        isActive
+                          ? "border-chartreuse bg-ink shadow-[0_0_12px_rgba(231,139,115,0.6)]"
+                          : "border-ivory/50 bg-ink/60 hover:border-chartreuse"
                       )}
-                    />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                    >
+                      <span
+                        className={cx(
+                          "h-1.5 w-1.5 rounded-full",
+                          isActive ? "bg-chartreuse" : "bg-ivory/80"
+                        )}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
 
-          {/* Active Spec Panel */}
-          <div className="flex flex-col justify-between rounded-none border border-ivory/20 bg-noir/80 p-8 shadow-xl backdrop-blur-md">
-            <div>
-              <div className="flex items-center justify-between border-b border-ivory/10 pb-4">
-                <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-chartreuse">
-                  Technical Spec Sheet
+          {/* Secondary: spec panel */}
+          <div className="border border-ivory/15 bg-noir/60 p-6 sm:p-8">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeHotspot.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35 }}
+              >
+                <span className="font-mono text-xs uppercase tracking-[0.2em] text-chartreuse font-semibold">
+                  {activeHotspot.spec}
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ivory/50">
-                  Point 0{HOTSPOTS.findIndex((s) => s.id === activeHotspot.id) + 1} / 04
-                </span>
+                <h3 className="mt-3 font-display text-2xl uppercase leading-tight sm:text-3xl">
+                  {activeHotspot.title}
+                </h3>
+                <p className="mt-4 font-editorial text-base sm:text-lg leading-relaxed text-ivory/90">
+                  {activeHotspot.description}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+
+            <div className="mt-8 grid grid-cols-2 gap-4 border-t border-ivory/10 pt-6 font-mono text-xs">
+              <div>
+                <span className="text-xs uppercase tracking-wide text-ivory/70 font-medium">Piece</span>
+                <p className="mt-1 text-ivory font-medium">{featuredProduct.title}</p>
               </div>
-
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeHotspot.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
-                  className="mt-6"
-                >
-                  <span className="inline-block rounded-full bg-chartreuse/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-chartreuse">
-                    {activeHotspot.spec}
-                  </span>
-                  <h3 className="mt-3 font-display text-2xl uppercase tracking-[-0.01em] text-ivory sm:text-3xl">
-                    {activeHotspot.title}
-                  </h3>
-                  <p className="mt-4 font-editorial text-base leading-relaxed text-ivory/75">
-                    {activeHotspot.description}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Garment Highlights Table */}
-              <div className="mt-8 grid grid-cols-2 gap-4 border-t border-ivory/10 pt-6 font-mono text-xs">
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-ivory/50">Object</span>
-                  <p className="mt-1 text-ivory">{featuredProduct.title}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-ivory/50">Valuation</span>
-                  <p className="mt-1 text-chartreuse">{formatMoney(featuredProduct.price)}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-ivory/50">Textile</span>
-                  <p className="mt-1 text-ivory">{featuredProduct.materials[0]}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-ivory/50">Edition</span>
-                  <p className="mt-1 text-ivory">Spring Summer SS26</p>
-                </div>
+              <div>
+                <span className="text-xs uppercase tracking-wide text-ivory/70 font-medium">Price</span>
+                <p className="mt-1 text-chartreuse font-bold">{formatMoney(featuredProduct.price)}</p>
               </div>
             </div>
 
-            {/* CTAs */}
-            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => onAddToCart(featuredProduct)}
-                className="flex flex-1 items-center justify-center gap-2 border border-chartreuse bg-chartreuse px-6 py-4 text-xs uppercase tracking-[0.2em] text-ink font-semibold transition hover:bg-transparent hover:text-chartreuse"
+                className="flex flex-1 items-center justify-center gap-2 bg-chartreuse px-6 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink transition hover:bg-white hover:shadow-lg"
+                data-magnetic="0.3"
               >
-                <Sparkles size={14} />
-                <span>Acquire Complete Set</span>
+                <Sparkles size={14} className="text-ink" />
+                <span>Add to Bag</span>
               </button>
               <button
                 onClick={() => onSelectProduct(featuredProduct)}
-                className="flex items-center justify-center gap-2 border border-ivory/30 px-6 py-4 text-xs uppercase tracking-[0.2em] text-ivory transition hover:border-ivory hover:bg-white/5"
+                className="flex items-center justify-center gap-2 border border-white/30 px-6 py-3.5 font-mono text-xs uppercase tracking-[0.2em] text-white transition hover:border-chartreuse hover:text-chartreuse hover:bg-white/5"
               >
-                <span>Full Monograph</span>
+                <span>View Piece</span>
                 <ArrowUpRight size={14} />
               </button>
             </div>

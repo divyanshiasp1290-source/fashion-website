@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useMotionValue, useScroll, useSpring, useTrans
 import {
   ArrowRight,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Columns,
@@ -18,13 +19,14 @@ import {
   User,
   X,
 } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CuratorModal } from "./components/CuratorModal";
-import { GarmentAnatomy } from "./components/GarmentAnatomy";
+import { GlobalAtelierScene3D } from "./components/HeroScene3D";
 import { MagneticCursor } from "./components/MagneticCursor";
 import { ProductCard3D } from "./components/ProductCard3D";
 import { ResnBrandIntro } from "./components/ResnBrandIntro";
 import { RunwayLookbook } from "./components/RunwayLookbook";
+import { ScrollReveal, ScrollDriven3D, refreshScrollTriggers } from "./components/ScrollAnimations";
 import { SignatureHero } from "./components/SignatureHero";
 import { collections, policies, products, type Collection, type Product } from "./data/catalog";
 import { cx, formatMoney, getPrimaryProduct } from "./utils";
@@ -59,75 +61,57 @@ type ShopMenu = {
 
 const shopifyMenus: ShopMenu[] = [
   {
-    label: "New Arrivals",
+    label: "SS26 Monograph",
     page: "collection",
-    hero: "Spring Summer SS26",
+    hero: "Spring Summer SS26 Presentation",
     columns: [
-      { title: "New Season", items: ["Women", "Men", "Bags", "Accessories"] },
-      { title: "Highlights", items: ["Best Sellers", "Campaign Picks", "New Drops"] },
+      { title: "Silhouettes", items: ["All SS26 Works", "Bovinille 101 Set", "Orion202 Denim", "Ntoube 302 Velvet"] },
+      { title: "Key Pieces", items: ["Monogram Jumpsuit", "R-F-A Jersey", "Esande Tee", "Agendia Duffle"] },
     ],
   },
   {
-    label: "Rockstud",
+    label: "Sets & Tracksuits",
     page: "collection",
-    hero: "Icon wardrobe edits",
+    hero: "Architectural two-piece uniforms",
     columns: [
-      { title: "Shoes", items: ["Sandals", "Pumps", "Sneakers"] },
-      { title: "Bags", items: ["Rockstud Bags", "Clutches", "Mini Bags"] },
+      { title: "Fabrics", items: ["300 GSM Heavy Cotton", "Stonewashed Denim", "Velvet Contour", "Sports Fabric"] },
+      { title: "Edits", items: ["Bleached Monolith", "Archival Sets", "Unisex Cuts", "Runway Uniforms"] },
     ],
   },
   {
-    label: "Women",
+    label: "Jerseys & Tops",
     page: "collection",
-    hero: "Women's ready to wear",
+    hero: "Graphic street-luxury silhouettes",
     columns: [
-      { title: "Ready To Wear", items: ["New Arrivals", "Dresses", "Jackets", "Trousers"] },
-      { title: "Accessories", items: ["Bags", "Shoes", "Jewellery"] },
+      { title: "Styles", items: ["R-F-A Sports Jersey", "Roar-With-Fierce Set", "Esande Gallery Tee", "Wakamania Reality"] },
+      { title: "Details", items: ["Sublimated Graphics", "Ribbed Collars", "Oversized Drape", "Breathable Mesh"] },
     ],
   },
   {
-    label: "Men",
+    label: "Denim & Outerwear",
     page: "collection",
-    hero: "Men's ready to wear",
+    hero: "Stonewashed artisanal pieces",
     columns: [
-      { title: "Ready To Wear", items: ["Jackets", "Knitwear", "Trousers", "Shirts"] },
-      { title: "Accessories", items: ["Shoes", "Bags", "Small Leather Goods"] },
+      { title: "Denim Studio", items: ["Orion202 Denim Set", "Bleached Indigo", "Workwear Contour", "DTS Pattern Print"] },
+      { title: "Craft", items: ["Artisanal Wash", "Custom Mill Weave", "Heavyweight Density", "Double Topstitch"] },
     ],
   },
   {
-    label: "Bags",
+    label: "Bags & Carryalls",
     page: "collection",
-    hero: "Carryall signatures",
+    hero: "Campaign travel silhouettes",
     columns: [
-      { title: "Shop By Style", items: ["Totes", "Shoulder Bags", "Mini Bags", "Travel"] },
-      { title: "Signature", items: ["Rockstud", "VLogo", "Quilted"] },
+      { title: "Collection", items: ["Agendia 007 Duffle", "Structured Shell", "Detachable Hardware", "Atelier Travel"] },
+      { title: "Finishes", items: ["Noir Matte", "Engineered Straps", "Dust Protective Bags", "Courier Ready"] },
     ],
   },
   {
-    label: "Gifts",
-    page: "collection",
-    hero: "Maison gifting",
-    columns: [
-      { title: "Gifts For Her", items: ["Bags", "Jewellery", "Small Leather Goods"] },
-      { title: "Gifts For Him", items: ["Shoes", "Accessories", "Fragrances"] },
-    ],
-  },
-  {
-    label: "Fragrances",
-    page: "collection",
-    hero: "Beauty ready category",
-    columns: [
-      { title: "Fragrances", items: ["For Her", "For Him", "Candles", "Gift Sets"] },
-      { title: "Best Sellers", items: ["Signature Scents", "New Releases"] },
-    ],
-  },
-  {
-    label: "V-Universe",
+    label: "Lookbook",
     page: "lookbook",
-    hero: "Brand universe",
+    hero: "Maison Makeeva runway monograph",
     columns: [
-      { title: "Explore", items: ["Campaigns", "Stories", "Events"] },
-      { title: "Discovery", items: ["Maison", "Shows", "Heritage"] },
+      { title: "Campaign Studies", items: ["SS26 Paris Presentation", "SS24 Archive", "Athleisure Campaign", "Runway Looks"] },
+      { title: "House Heritage", items: ["Cultural Artistry", "Atelier Paris", "Studio Accra", "Curator Monograph"] },
     ],
   },
 ];
@@ -149,15 +133,22 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [curatorProduct, setCuratorProduct] = useState<Product | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product>(getPrimaryProduct(products));
+  const [activeCategory, setActiveCategory] = useState<string>("All");
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  const go = (next: Page, product?: Product) => {
+  const go = (next: Page, product?: Product, category?: string) => {
     if (product) setSelectedProduct(product);
+    if (category) setActiveCategory(category);
     setPage(next);
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => refreshScrollTriggers(), 400);
+    return () => window.clearTimeout(timer);
+  }, [page, introVisible]);
 
   const toggleWishlist = (product: Product) => {
     setWishlist((items) =>
@@ -187,6 +178,8 @@ export default function App() {
         toggleWishlist={toggleWishlist}
         addToCart={addToCart}
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
+        activeCategory={activeCategory}
+        setActiveCategory={setActiveCategory}
       />
     ),
     collection: (
@@ -196,6 +189,7 @@ export default function App() {
         toggleWishlist={toggleWishlist}
         addToCart={addToCart}
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
+        initialCategory={activeCategory}
       />
     ),
     product: (
@@ -232,7 +226,10 @@ export default function App() {
   }[page];
 
   return (
-    <div className="min-h-screen bg-bone text-ink selection:bg-chartreuse selection:text-ink cursor-default">
+    <div className="relative min-h-screen bg-bone text-ink selection:bg-chartreuse selection:text-ink cursor-default">
+      {/* Global 3D Fabric Simulation, 3D Camera, Dynamic Lighting & Parallax Background */}
+      <GlobalAtelierScene3D className="fixed inset-0 pointer-events-none z-[2]" />
+
       {/* Cuberto-Style Magnetic Fluid Custom Cursor */}
       <MagneticCursor />
 
@@ -249,10 +246,11 @@ export default function App() {
       <AnimatePresence mode="wait">
         <motion.main
           key={page}
-          initial={{ opacity: 0, y: 14 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -14 }}
-          transition={{ duration: 0.7, ease: easeOutExpo }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.5, ease: easeOutExpo }}
+          className="relative z-10 will-change-transform"
         >
           {PageComponent}
         </motion.main>
@@ -290,7 +288,7 @@ function Navigation({
   onCart,
 }: {
   page: Page;
-  go: (page: Page, product?: Product) => void;
+  go: (page: Page, product?: Product, category?: string) => void;
   cartCount: number;
   wishlistCount: number;
   onMenu: () => void;
@@ -302,17 +300,17 @@ function Navigation({
   return (
     <header className="fixed inset-x-0 top-0 z-50">
       {/* Top Archival Runway Ticker Strip */}
-      <div className="border-b border-white/10 bg-ink/90 text-ivory">
-        <div className="mx-auto flex h-10 max-w-[1600px] items-center justify-between gap-3 px-4 text-[11px] uppercase tracking-[0.22em] font-mono sm:px-8">
-          <div className="flex items-center gap-3 truncate">
-            <span className="h-1.5 w-1.5 rounded-full bg-chartreuse animate-pulse" />
-            <span className="truncate">PARIS ARCHIVE // SS26 PRESENTATION // CULTURAL ARTISTRY</span>
+      <div className="border-b border-white/15 bg-black text-white">
+        <div className="mx-auto flex h-8 sm:h-9 max-w-[1600px] items-center justify-between gap-2 px-3 font-mono text-xs uppercase tracking-[0.14em] sm:tracking-[0.22em] sm:px-8">
+          <div className="flex items-center gap-2 truncate">
+            <span className="h-1.5 w-1.5 rounded-full bg-chartreuse animate-pulse shrink-0" />
+            <span className="truncate text-white/90 font-medium">MAISON MAKEEVA // SS26 ATELIER</span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <button
               onClick={() => go("collection")}
-              className="text-[11px] uppercase tracking-[0.22em] text-chartreuse transition hover:underline"
+              className="font-mono text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] text-chartreuse hover:underline font-semibold"
             >
               Exhibition Catalog →
             </button>
@@ -321,12 +319,9 @@ function Navigation({
       </div>
 
       {/* Main Glassmorphic Navigation Bar */}
-      <div className="border-b border-ivory/15 bg-ink/75 text-ivory backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-8">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <IconButton label="Account" onClick={() => go("account")}>
-              <User size={18} />
-            </IconButton>
+      <div className="border-b border-white/10 bg-black/95 text-white backdrop-blur-xl">
+        <div className="mx-auto flex h-14 sm:h-16 max-w-[1600px] items-center justify-between px-3 sm:px-8 gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <IconButton label="Search" onClick={onSearch}>
               <Search size={18} />
             </IconButton>
@@ -334,49 +329,50 @@ function Navigation({
 
           <button
             onClick={() => go("home")}
-            className="flex flex-col items-center group text-center"
+            className="flex flex-col items-center group text-center min-w-0"
           >
-            <span className="font-display text-lg uppercase tracking-[0.16em] sm:text-xl transition-transform group-hover:scale-105">
-              MM / Makeeva
-            </span>
-            <span className="font-mono text-[8px] uppercase tracking-[0.28em] text-chartreuse opacity-80">
-              Atelier Paris
+            <span className="font-display text-sm sm:text-2xl uppercase font-bold tracking-[0.08em] sm:tracking-[0.18em] transition-transform group-hover:scale-105 text-white truncate">
+              Maison Makeeva
             </span>
           </button>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
+            <IconButton label="Account" onClick={() => go("account")}>
+              <User size={18} />
+            </IconButton>
+
             <IconButton label={`Wishlist ${wishlistCount}`} onClick={() => go("wishlist")}>
-              <Heart size={18} fill={wishlistCount > 0 ? "currentColor" : "none"} className={wishlistCount > 0 ? "text-chartreuse" : ""} />
+              <Heart size={18} fill={wishlistCount > 0 ? "currentColor" : "none"} className={wishlistCount > 0 ? "text-chartreuse fill-chartreuse" : ""} />
             </IconButton>
 
             <button
               onClick={onCart}
-              className="relative flex items-center gap-2 border border-ivory/25 px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-ivory transition hover:border-chartreuse hover:text-chartreuse"
+              className="relative flex items-center gap-1.5 border border-white/30 px-2 sm:px-3.5 py-1.5 font-mono text-xs uppercase tracking-wider text-white transition hover:border-chartreuse hover:text-chartreuse hover:bg-white/5"
               aria-label="Open cart bag"
             >
               <ShoppingBag size={15} />
               <span className="hidden sm:inline">Bag</span>
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-chartreuse px-1 text-[9px] font-bold text-ink">
+              <span className="flex h-4 min-w-4 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-chartreuse px-1 text-[11px] sm:text-xs font-bold text-ink">
                 {cartCount}
               </span>
             </button>
 
-            <button className="lg:hidden p-2" onClick={onMenu} aria-label="Open menu">
-              <Menu size={22} />
+            <button className="lg:hidden p-1.5 text-white hover:text-chartreuse" onClick={onMenu} aria-label="Open menu">
+              <Menu size={20} />
             </button>
           </div>
         </div>
       </div>
 
       {/* Desktop Curated Mega-Menu Links */}
-      <div className="hidden lg:block border-b border-ivory/15 bg-ink/75 text-ivory backdrop-blur-md">
-        <div className="mx-auto flex h-12 max-w-[1600px] items-center justify-center gap-8 px-4 font-mono text-xs uppercase tracking-[0.24em]">
+      <div className="hidden lg:block border-b border-white/15 bg-black text-white">
+        <div className="mx-auto flex h-11 max-w-[1600px] items-center justify-center gap-9 px-4 font-mono text-xs uppercase tracking-[0.22em]">
           {shopifyMenus.map((menu) => (
             <button
               key={menu.label}
               onMouseEnter={() => setMega(menu.label)}
               onClick={() => go(menu.page)}
-              className="transition hover:text-chartreuse hover:underline underline-offset-8"
+              className="transition hover:text-chartreuse hover:underline underline-offset-8 text-white/90 font-medium"
             >
               {menu.label}
             </button>
@@ -389,15 +385,15 @@ function Navigation({
         {mega && (
           <motion.div
             onMouseLeave={() => setMega(null)}
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.25 }}
-            className="hidden border-t border-ivory/10 bg-ink/95 px-10 py-10 lg:block shadow-2xl backdrop-blur-2xl"
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="hidden border-t border-white/20 bg-black px-10 py-10 lg:block shadow-2xl"
           >
             <div className="mx-auto grid max-w-[1400px] grid-cols-[1fr_1.2fr] gap-12">
               <div>
-                <p className="mb-5 font-mono text-xs uppercase tracking-wideLuxury text-chartreuse">
+                <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-wideLuxury text-chartreuse">
                   {mega} Collection Study
                 </p>
                 <div className="grid grid-cols-2 gap-x-10 gap-y-3">
@@ -406,9 +402,9 @@ function Navigation({
                       key={item}
                       onClick={() => {
                         setMega(null);
-                        go("collection");
+                        go("collection", undefined, item.includes("Set") ? "Sets" : item.includes("Jersey") ? "Shirts & T-shirts" : item.includes("Duffle") ? "Bags & Wallets" : "All");
                       }}
-                      className="text-left font-display text-lg text-ivory transition-colors duration-150 hover:text-chartreuse hover:translate-x-1"
+                      className="text-left font-display text-base text-white/90 transition-colors duration-150 hover:text-chartreuse hover:translate-x-1"
                     >
                       {item}
                     </button>
@@ -419,7 +415,7 @@ function Navigation({
               <div className="grid grid-cols-2 gap-8">
                 {shopifyMenuMap[mega].columns.map((column) => (
                   <div key={column.title}>
-                    <p className="mb-4 font-mono text-xs uppercase tracking-wideLuxury text-stone">
+                    <p className="mb-4 font-mono text-xs uppercase tracking-wideLuxury text-white/60 font-medium">
                       {column.title}
                     </p>
                     <div className="space-y-2.5">
@@ -430,7 +426,7 @@ function Navigation({
                             setMega(null);
                             go("collection");
                           }}
-                          className="block text-left text-sm text-ivory/80 transition-colors duration-150 hover:text-chartreuse"
+                          className="block text-left font-sans text-sm text-white/85 transition-colors duration-150 hover:text-chartreuse"
                         >
                           {item}
                         </button>
@@ -439,18 +435,18 @@ function Navigation({
                   </div>
                 ))}
 
-                <div className="border border-ivory/20 bg-parchment p-6 text-ink flex flex-col justify-between">
+                <div className="border border-ivory/20 bg-parchment p-6 text-ink flex flex-col justify-between shadow-xl">
                   <div>
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-taupe">Atelier Spotlight</span>
-                    <h4 className="mt-2 font-display text-xl uppercase leading-tight">{shopifyMenuMap[mega].hero}</h4>
-                    <p className="mt-2 font-editorial text-xs text-graphite/80">Crafted with cultural memory and tactile density.</p>
+                    <span className="font-mono text-xs uppercase tracking-wider text-taupe font-semibold">Atelier Spotlight</span>
+                    <h4 className="mt-2 font-display text-xl uppercase font-bold leading-tight text-ink">{shopifyMenuMap[mega].hero}</h4>
+                    <p className="mt-2 font-sans text-xs text-graphite/90">Crafted with cultural memory and tactile density.</p>
                   </div>
                   <button
                     onClick={() => {
                       setMega(null);
                       go(shopifyMenuMap[mega].page);
                     }}
-                    className="mt-6 flex items-center justify-between border-t border-ink/20 pt-3 font-mono text-xs uppercase tracking-[0.18em] font-semibold transition hover:text-taupe"
+                    className="mt-6 flex items-center justify-between border-t border-ink/20 pt-3 font-mono text-xs uppercase tracking-[0.18em] font-semibold transition hover:text-chartreuse text-ink"
                   >
                     <span>Enter Universe</span>
                     <ArrowRight size={14} />
@@ -477,7 +473,7 @@ function IconButton({
   return (
     <button
       onClick={onClick}
-      className="p-2 text-ivory transition hover:text-chartreuse"
+      className="p-1.5 sm:p-2 text-white/80 transition hover:text-white hover:scale-105 active:scale-95 flex items-center justify-center"
       aria-label={label}
       title={label}
     >
@@ -489,7 +485,7 @@ function IconButton({
 function KineticTicker() {
   const tickerItems = [
     "MAISON MAKEEVA",
-    "SS26 SALON EXHIBITION",
+    "SS26 ATELIER EXHIBITION",
     "300 GSM HEAVYWEIGHT COTTON",
     "STONEWASHED DENIM",
     "CULTURAL ARTISTRY",
@@ -500,7 +496,7 @@ function KineticTicker() {
   ];
 
   return (
-    <div className="relative overflow-hidden border-y border-ivory/15 bg-ink py-3 text-ivory select-none">
+    <div className="relative z-10 overflow-hidden border-y border-ivory/15 bg-ink py-3 text-ivory select-none">
       <div className="animate-marquee flex items-center gap-8">
         {[...tickerItems, ...tickerItems].map((item, idx) => (
           <div key={idx} className="flex items-center gap-8 shrink-0 font-mono text-[11px] uppercase tracking-[0.24em]">
@@ -520,87 +516,66 @@ function HomePage({
   addToCart,
   onCuratorInspect,
 }: {
-  go: (page: Page, product?: Product) => void;
+  go: (page: Page, product?: Product, category?: string) => void;
   wishlist: string[];
   toggleWishlist: (product: Product) => void;
   addToCart: (product: Product) => void;
   onCuratorInspect: (product: Product) => void;
+  activeCategory?: string;
+  setActiveCategory?: (cat: string) => void;
 }) {
-  const primaryProduct = getPrimaryProduct(products);
-
   return (
     <>
-      {/* Signature 3D Hero Stage with Cuberto + Resn Level Polish */}
+      {/* 1. Cinematic 3D Hero with Liquid-like Motion */}
       <SignatureHero go={go} />
+
+      {/* 2. Kinetic Ticker Ribbon */}
       <KineticTicker />
 
-      {/* Featured Campaign Collections Archive */}
-      <FeaturedCollections go={go} />
+      {/* Curated Campaign Collections */}
+      <div id="featured-collections">
+        <ScrollDriven3D depth={40}>
+          <ScrollReveal variant="fadeUp">
+            <FeaturedCollections go={go} />
+          </ScrollReveal>
+        </ScrollDriven3D>
+      </div>
 
-      {/* Reimagined Salon Exhibition: New Arrivals with View Switcher (Clean 2D Cards) */}
-      <SalonExhibition
-        title="Salon Exhibition / New Arrivals"
-        eyebrow="Spring Summer SS26 Monograph"
-        description="Silhouettes cut from 300 GSM cotton, deep stonewashed denim, and rich velvet."
-        items={products.slice(0, 6)}
-        go={go}
-        wishlist={wishlist}
-        toggleWishlist={toggleWishlist}
-        addToCart={addToCart}
-        onCuratorInspect={onCuratorInspect}
-      />
+      {/* Curated SS26 Exhibition Grid */}
+      <div id="atelier-exhibition">
+        <ScrollDriven3D depth={50}>
+          <ScrollReveal variant="fadeUp">
+            <AtelierExhibition
+              title="New Arrivals SS26"
+              eyebrow="Curated Atelier Exhibition"
+              description="Silhouettes cut from 300 GSM cotton, stonewashed denim, and rich velvet."
+              items={products.slice(0, 6)}
+              go={go}
+              wishlist={wishlist}
+              toggleWishlist={toggleWishlist}
+              addToCart={addToCart}
+              onCuratorInspect={onCuratorInspect}
+            />
+          </ScrollReveal>
+        </ScrollDriven3D>
+      </div>
 
-      {/* The Living Archive / Garment Anatomy Section */}
-      <Reveal>
-        <GarmentAnatomy
-          featuredProduct={primaryProduct}
-          onSelectProduct={(p) => go("product", p)}
-          onAddToCart={addToCart}
-        />
-      </Reveal>
+      {/* Interactive Runway Lookbook */}
+      <ScrollDriven3D depth={45}>
+        <ScrollReveal variant="fadeUp">
+          <RunwayLookbook
+            onSelectProduct={(p) => go("product", p)}
+            onAddToCart={addToCart}
+            onOpenCurator={onCuratorInspect}
+          />
+        </ScrollReveal>
+      </ScrollDriven3D>
 
-      {/* Full-Screen 3D Editorial Campaign Chamber */}
-      <Reveal>
-        <EditorialCampaign go={go} />
-      </Reveal>
+      {/* Minimal Dispatch Newsletter */}
+      <Newsletter go={go} />
 
-      {/* Runway Lookbook with Interactive Garment Hotspots */}
-      <Reveal>
-        <RunwayLookbook
-          onSelectProduct={(p) => go("product", p)}
-          onAddToCart={addToCart}
-          onOpenCurator={onCuratorInspect}
-        />
-      </Reveal>
-
-      {/* Best Sellers Exhibition */}
-      <SalonExhibition
-        title="Iconic House Silhouettes"
-        eyebrow="Archive Best Sellers"
-        description="Permanent codes and essential uniforms of Maison Makeeva."
-        items={products.filter((p) => p.badge).slice(0, 6)}
-        go={go}
-        wishlist={wishlist}
-        toggleWishlist={toggleWishlist}
-        addToCart={addToCart}
-        onCuratorInspect={onCuratorInspect}
-      />
-
-      <Reveal>
-        <BrandPhilosophy />
-      </Reveal>
-
-      {/* Full-Screen 3D Visual Gallery Walkway */}
-      <Reveal>
-        <FashionGallery />
-      </Reveal>
-
-      <Reveal>
-        <Newsletter />
-      </Reveal>
-      <Reveal>
-        <PolicyStrip />
-      </Reveal>
+      {/* Discreet Policy Strip */}
+      <PolicyStrip />
     </>
   );
 }
@@ -633,21 +608,18 @@ function FeaturedCollections({ go }: { go: (page: Page) => void }) {
                 alt={collection.title}
                 className="image-reveal h-full w-full object-cover"
               />
-              <span className="absolute right-3 top-3 font-mono text-[10px] text-white/80 bg-ink/70 px-2 py-0.5 backdrop-blur-sm">
-                0{index + 1}
-              </span>
             </div>
             <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-ink/90 via-ink/40 to-transparent p-6 text-ivory">
-              <span className="font-mono text-[10px] uppercase tracking-wideLuxury text-chartreuse">
+              <span className="font-mono text-xs uppercase tracking-wideLuxury text-chartreuse font-semibold">
                 {collection.season}
               </span>
-              <h3 className="mt-1 font-display text-xl uppercase leading-tight tracking-[-0.02em]">
+              <h3 className="mt-1 font-display text-xl uppercase leading-tight tracking-[-0.02em] text-white">
                 {collection.title}
               </h3>
-              <p className="mt-2 line-clamp-2 font-editorial text-xs text-ivory/80">
+              <p className="mt-2 line-clamp-2 font-editorial text-sm sm:text-base text-ivory/95 leading-normal">
                 {collection.description}
               </p>
-              <span className="mt-4 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ivory group-hover:text-chartreuse transition-colors">
+              <span className="mt-4 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-white group-hover:text-chartreuse group-hover:underline transition-colors">
                 <span>Explore Works</span>
                 <ArrowRight size={12} />
               </span>
@@ -659,7 +631,7 @@ function FeaturedCollections({ go }: { go: (page: Page) => void }) {
   );
 }
 
-function SalonExhibition({
+function AtelierExhibition({
   title,
   eyebrow,
   description,
@@ -680,43 +652,43 @@ function SalonExhibition({
   addToCart: (product: Product) => void;
   onCuratorInspect: (product: Product) => void;
 }) {
-  const [viewMode, setViewMode] = useState<"salon" | "grid" | "runway">("salon");
+  const [viewMode, setViewMode] = useState<"atelier" | "grid" | "runway">("atelier");
 
   return (
     <Section eyebrow={eyebrow} title={title}>
       {/* Top Controller: View Switcher */}
       <div className="mb-8 flex flex-col justify-between gap-4 border-b border-ink/15 pb-5 sm:flex-row sm:items-center">
         {description ? (
-          <p className="max-w-xl font-editorial text-base text-graphite/80 italic">{description}</p>
+          <p className="max-w-2xl font-editorial text-lg sm:text-xl md:text-2xl text-graphite/90 italic font-medium leading-relaxed">{description}</p>
         ) : (
           <div />
         )}
 
         <div className="flex items-center gap-2 self-end">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-taupe mr-2">
+          <span className="font-mono text-xs uppercase tracking-wider text-taupe mr-2 font-medium">
             Display Mode:
           </span>
           <button
-            onClick={() => setViewMode("salon")}
+            onClick={() => setViewMode("atelier")}
             className={cx(
-              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider transition",
-              viewMode === "salon"
-                ? "border-ink bg-ink text-ivory font-bold"
-                : "border-ink/20 text-taupe hover:border-ink"
+              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition",
+              viewMode === "atelier"
+                ? "border-chartreuse bg-chartreuse text-ink font-bold shadow-sm"
+                : "border-ink/20 text-taupe hover:border-chartreuse hover:text-chartreuse"
             )}
-            title="Asymmetric Salon Exhibition"
+            title="Asymmetric Atelier Exhibition"
           >
             <Columns size={12} />
-            <span className="hidden sm:inline">Salon</span>
+            <span className="hidden sm:inline">Atelier</span>
           </button>
 
           <button
             onClick={() => setViewMode("runway")}
             className={cx(
-              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider transition",
+              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition",
               viewMode === "runway"
-                ? "border-ink bg-ink text-ivory font-bold"
-                : "border-ink/20 text-taupe hover:border-ink"
+                ? "border-chartreuse bg-chartreuse text-ink font-bold shadow-sm"
+                : "border-ink/20 text-taupe hover:border-chartreuse hover:text-chartreuse"
             )}
             title="Horizontal Runway Stream"
           >
@@ -727,10 +699,10 @@ function SalonExhibition({
           <button
             onClick={() => setViewMode("grid")}
             className={cx(
-              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider transition",
+              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition",
               viewMode === "grid"
-                ? "border-ink bg-ink text-ivory font-bold"
-                : "border-ink/20 text-taupe hover:border-ink"
+                ? "border-chartreuse bg-chartreuse text-ink font-bold shadow-sm"
+                : "border-ink/20 text-taupe hover:border-chartreuse hover:text-chartreuse"
             )}
             title="Standard High-Density Grid"
           >
@@ -757,7 +729,7 @@ function SalonExhibition({
             />
           ))}
         </div>
-      ) : viewMode === "salon" ? (
+      ) : viewMode === "atelier" ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
           {items.map((product, idx) => (
             <ProductCard3D
@@ -769,7 +741,7 @@ function SalonExhibition({
               onWish={() => toggleWishlist(product)}
               onAdd={addToCart}
               onCuratorInspect={onCuratorInspect}
-              viewMode="salon"
+              viewMode="atelier"
             />
           ))}
         </div>
@@ -794,209 +766,40 @@ function SalonExhibition({
   );
 }
 
-function EditorialCampaign({ go }: { go: (page: Page) => void }) {
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const smoothX = useSpring(mouseX, { stiffness: 80, damping: 20 });
-  const smoothY = useSpring(mouseY, { stiffness: 80, damping: 20 });
-  const tiltX = useTransform(smoothY, [-0.5, 0.5], [6, -6]);
-  const tiltY = useTransform(smoothX, [-0.5, 0.5], [-6, 6]);
-  const floatZ = useTransform(smoothX, [-0.5, 0.5], [-15, 15]);
-
-  const { scrollYProgress } = useScroll();
-  const cameraZ = useTransform(scrollYProgress, [0.3, 0.6], [0, 30]);
-
-  const handlePointer = (e: React.PointerEvent<HTMLElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    mouseX.set((e.clientX - rect.left) / rect.width - 0.5);
-    mouseY.set((e.clientY - rect.top) / rect.height - 0.5);
-  };
-  const handleLeave = () => {
-    mouseX.set(0);
-    mouseY.set(0);
-  };
-
-  return (
-    <section
-      className="relative grid bg-ink text-ivory lg:grid-cols-2 overflow-hidden border-y border-ivory/15 select-none"
-      style={{ perspective: "1400px" }}
-      onPointerMove={handlePointer}
-      onPointerLeave={handleLeave}
-      data-cursor="view"
-      data-cursor-text="EDITORIAL"
-    >
-      <motion.div
-        style={{
-          rotateX: tiltX,
-          rotateY: tiltY,
-          z: cameraZ,
-          transformStyle: "preserve-3d",
-        }}
-        className="campaign-image-wrap min-h-[80vh] overflow-hidden relative p-4 sm:p-8 flex items-center justify-center will-change-transform"
-      >
-        <div className="relative aspect-[4/5] w-full max-w-lg overflow-hidden border border-ivory/20 shadow-2xl">
-          <img
-            src="https://www.maisonmakeeva.com/cdn/shop/files/D59A0094_be86ab79-e665-4d98-9937-31d9eb6de6c0_2048x.jpg?v=1763735979"
-            alt="Maison Makeeva editorial campaign"
-            className="h-full w-full object-cover filter contrast-[1.05]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-transparent to-transparent" />
-          <div className="absolute top-4 left-4 rounded bg-ink/85 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-chartreuse backdrop-blur-md">
-            STUDY // MM-026
-          </div>
-        </div>
-
-        {/* Floating 3D Specimen Plaque */}
-        <motion.div
-          style={{ x: floatZ, z: 80 }}
-          className="absolute -bottom-2 right-6 sm:right-12 z-20 w-64 border border-ivory/25 bg-noir/90 p-4 shadow-2xl backdrop-blur-xl hidden sm:block"
-        >
-          <span className="font-mono text-[9px] uppercase tracking-wider text-chartreuse block">
-            Couture Textile Note
-          </span>
-          <p className="mt-1 font-editorial text-xs text-ivory/80 italic">
-            "Stonewashed indigo densified for architectural volume and cultural memory."
-          </p>
-        </motion.div>
-      </motion.div>
-
-      <div className="flex min-h-[65vh] flex-col justify-center px-6 py-20 sm:px-12 lg:px-20 bg-noir">
-        <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-chartreuse">
-          Editorial Manifesto // SS26
-        </span>
-        <h2 className="mt-4 font-display text-3xl uppercase leading-none sm:text-5xl lg:text-6xl">
-          The work of art, worn.
-        </h2>
-        <p className="mt-6 max-w-lg font-editorial text-base sm:text-lg leading-relaxed text-ivory/80">
-          Maison Makeeva’s visual language moves between thick velvet, stonewashed denim, performance jerseys, and graphic storytelling. Every garment is engineered as an enduring image rather than disposable fashion.
-        </p>
-
-        <div className="mt-8 flex items-center gap-6">
-          <button
-            onClick={() => go("lookbook")}
-            className="group flex items-center gap-3 border-b-2 border-chartreuse pb-1 font-mono text-xs uppercase tracking-[0.2em] text-chartreuse transition hover:text-white hover:border-white"
-          >
-            <span>View Monograph</span>
-            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-          </button>
-          <button
-            onClick={() => go("collection")}
-            className="font-mono text-xs uppercase tracking-[0.2em] text-ivory/70 transition hover:text-white"
-          >
-            Shop Current SS26
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function BrandPhilosophy() {
-  return (
-    <section className="bg-bone px-5 py-24 sm:px-10 lg:px-16 border-t border-ink/15">
-      <motion.div
-        variants={fadeUp}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true }}
-        className="mx-auto max-w-5xl text-center"
-      >
-        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-taupe">
-          Brand Philosophy & Cultural Heritage
-        </p>
-        <h2 className="mt-6 font-display text-2xl uppercase leading-tight sm:text-4xl lg:text-5xl">
-          We are design and product obsessed. Uncompromising in the style, quality and fitting of every garment we create.
-        </h2>
-        <p className="mx-auto mt-8 max-w-3xl font-editorial text-lg leading-relaxed text-graphite/80 italic">
-          "Creative director Makeeva Anye brings meticulous attention to detail and innovative design skills to each collection, ensuring every garment is not just clothing, but a work of art."
-        </p>
-        <div className="mt-8 flex justify-center items-center gap-6 font-mono text-[10px] uppercase tracking-[0.24em] text-taupe">
-          <span>PARIS ATELIER</span>
-          <span className="h-1 w-1 rounded-full bg-taupe" />
-          <span>ACCRA HERITAGE</span>
-          <span className="h-1 w-1 rounded-full bg-taupe" />
-          <span>GLOBAL COUTURE</span>
-        </div>
-      </motion.div>
-    </section>
-  );
-}
-
-function FashionGallery() {
-  const images = [
-    { src: "D59A9701_2048x.jpg?v=1763735600", title: "Plate 01 // Silhouette" },
-    { src: "D59A0011_f8d37a1d-ef93-4094-889a-3a1efa1d8ed2_2048x.jpg?v=1763735775", title: "Plate 02 // Structure" },
-    { src: "D59A0094_2048x.jpg?v=1761262011", title: "Plate 03 // Drape" },
-    { src: "D59A0059_1024x1024_crop_center.jpg?v=1763488780", title: "Plate 04 // Identity" },
-  ];
-
-  return (
-    <section
-      className="bg-ink p-4 sm:p-10 border-t border-ivory/15 select-none"
-      style={{ perspective: "1200px" }}
-      data-cursor="view"
-      data-cursor-text="GALLERY"
-    >
-      <div className="mb-8 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.24em] text-ivory/60 border-b border-ivory/10 pb-4">
-        <span>3D Visual Monograph Walkway</span>
-        <span className="text-chartreuse">4 Perspectives</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {images.map((item, index) => (
-          <motion.div
-            key={item.src}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.04, z: 50 }}
-            transition={{ delay: index * 0.08, duration: 0.6 }}
-            viewport={{ once: true }}
-            className={cx(
-              "overflow-hidden group relative border border-ivory/15 bg-graphite shadow-xl cursor-pointer will-change-transform",
-              index === 1 && "md:mt-12",
-              index === 2 && "md:mt-6"
-            )}
-            style={{ transformStyle: "preserve-3d" }}
-          >
-            <img
-              src={`https://www.maisonmakeeva.com/cdn/shop/files/${item.src}`}
-              alt={item.title}
-              className="h-[52vh] w-full object-cover transition-transform duration-700 group-hover:scale-105 filter brightness-[1.02] contrast-[1.04]"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-transparent to-transparent opacity-60 group-hover:opacity-30 transition-opacity" />
-            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-              <span className="bg-ink/90 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-ivory backdrop-blur-sm">
-                {item.title}
-              </span>
-              <span className="text-chartreuse font-mono text-[9px] opacity-0 group-hover:opacity-100 transition-opacity">
-                INSPECT →
-              </span>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function CollectionPage({
   go,
   wishlist,
   toggleWishlist,
   addToCart,
   onCuratorInspect,
+  initialCategory,
 }: {
-  go: (page: Page, product?: Product) => void;
+  go: (page: Page, product?: Product, category?: string) => void;
   wishlist: string[];
   toggleWishlist: (product: Product) => void;
   addToCart: (product: Product) => void;
   onCuratorInspect: (product: Product) => void;
+  initialCategory?: string;
 }) {
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useState(initialCategory || "All");
   const [sort, setSort] = useState("Featured");
-  const [viewMode, setViewMode] = useState<"salon" | "grid" | "runway">("salon");
+  const [viewMode, setViewMode] = useState<"atelier" | "grid" | "runway">("atelier");
+
+  useEffect(() => {
+    if (initialCategory) {
+      setCategory(initialCategory);
+    }
+  }, [initialCategory]);
 
   const categories = ["All", ...Array.from(new Set(products.map((product) => product.category)))];
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { All: products.length };
+    products.forEach((p) => {
+      c[p.category] = (c[p.category] || 0) + 1;
+    });
+    return c;
+  }, []);
 
   const filtered = useMemo(() => {
     const next = category === "All" ? [...products] : products.filter((product) => product.category === category);
@@ -1013,43 +816,55 @@ function CollectionPage({
         <p className="max-w-2xl font-editorial text-lg leading-snug text-graphite/90 sm:text-xl">
           Pieces made to hold the room. Explore the complete SS26 ready-to-wear archive filtered by textile, silhouette, and proportion.
         </p>
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-taupe">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-chartreuse font-semibold">
           {filtered.length} / {products.length} works catalogued
         </p>
       </div>
 
       {/* Filter and View Controls */}
       <div className="mb-10 grid gap-6 border-b border-ink/15 pb-6 lg:grid-cols-[1fr_auto] items-center">
-        {/* Category Pills */}
-        <div className="flex flex-wrap gap-2">
+        {/* Category Pills: Horizontal swipeable rail on mobile, wrapping on desktop */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0">
           {categories.map((item) => (
             <button
               key={item}
               onClick={() => setCategory(item)}
               className={cx(
-                "border px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-wideLuxury transition",
-                category === item ? "border-ink bg-ink text-ivory font-bold" : "border-ink/20 text-taupe hover:border-ink hover:text-ink"
+                "inline-flex items-center gap-2 border px-3.5 py-2 font-mono text-xs uppercase tracking-wideLuxury transition shrink-0 whitespace-nowrap min-h-[38px]",
+                category === item
+                  ? "border-chartreuse bg-ink text-chartreuse font-bold shadow-sm ring-1 ring-chartreuse"
+                  : "border-ink/20 text-graphite hover:border-chartreuse hover:text-chartreuse bg-white/40"
               )}
             >
-              {item}
+              <span>{item}</span>
+              <span
+                className={cx(
+                  "rounded-full px-2 py-0.5 text-[11px] font-mono font-semibold",
+                  category === item ? "bg-chartreuse text-ink font-bold" : "bg-ink/10 text-taupe"
+                )}
+              >
+                {counts[item] || 0}
+              </span>
             </button>
           ))}
         </div>
 
         {/* View Mode & Sort Dropdown */}
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center justify-between sm:justify-start gap-4 w-full lg:w-auto">
           <div className="flex items-center gap-1 border border-ink/20 p-1">
             <button
-              onClick={() => setViewMode("salon")}
-              className={cx("p-1.5", viewMode === "salon" ? "bg-ink text-ivory" : "text-taupe hover:text-ink")}
-              title="Salon mode"
+              onClick={() => setViewMode("atelier")}
+              className={cx("p-1.5 transition", viewMode === "atelier" ? "bg-ink text-chartreuse font-bold border border-chartreuse" : "text-taupe hover:text-ink")}
+              title="Atelier mode"
+              aria-label="Atelier mode"
             >
               <Columns size={14} />
             </button>
             <button
               onClick={() => setViewMode("grid")}
-              className={cx("p-1.5", viewMode === "grid" ? "bg-ink text-ivory" : "text-taupe hover:text-ink")}
+              className={cx("p-1.5 transition", viewMode === "grid" ? "bg-ink text-chartreuse font-bold border border-chartreuse" : "text-taupe hover:text-ink")}
               title="Grid mode"
+              aria-label="Grid mode"
             >
               <LayoutGrid size={14} />
             </button>
@@ -1061,6 +876,7 @@ function CollectionPage({
               value={sort}
               onChange={(event) => setSort(event.target.value)}
               className="bg-transparent font-mono outline-none text-ink cursor-pointer"
+              aria-label="Sort products"
             >
               {["Featured", "Price, low to high", "Price, high to low", "Alphabetically, A-Z"].map((item) => (
                 <option key={item}>{item}</option>
@@ -1073,8 +889,8 @@ function CollectionPage({
       {/* Catalog Render */}
       <div
         className={cx(
-          "grid gap-x-4 gap-y-10",
-          viewMode === "salon"
+          "grid gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10",
+          viewMode === "atelier"
             ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
             : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
         )}
@@ -1106,7 +922,7 @@ function ProductPage({
   onCuratorInspect,
 }: {
   product: Product;
-  go: (page: Page, product?: Product) => void;
+  go: (page: Page, product?: Product, category?: string) => void;
   wishlist: string[];
   toggleWishlist: (product: Product) => void;
   addToCart: (product: Product, size?: string) => void;
@@ -1115,6 +931,29 @@ function ProductPage({
   const [size, setSize] = useState(product.sizes[0] || "M");
   const [activeImage, setActiveImage] = useState(0);
   const [added, setAdded] = useState(false);
+
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    const diff = touchStartX.current - touchEndX.current;
+    if (diff > 45) {
+      setActiveImage((prev) => (prev + 1) % product.images.length);
+    } else if (diff < -45) {
+      setActiveImage((prev) => (prev - 1 + product.images.length) % product.images.length);
+    }
+    touchStartX.current = 0;
+    touchEndX.current = 0;
+  };
 
   const related = products
     .filter((item) => item.id !== product.id && (item.category === product.category || item.collection === product.collection))
@@ -1133,9 +972,9 @@ function ProductPage({
 
   return (
     <>
-      <section className="product-detail-shell grid min-h-screen bg-ivory pt-24 sm:pt-28 lg:grid-cols-[1.2fr_0.8fr]">
+      <section className="product-detail-shell grid min-h-screen bg-ivory pt-20 sm:pt-28 lg:grid-cols-[1.2fr_0.8fr]">
         {/* Gallery Left */}
-        <div className="product-detail-gallery bg-ink p-3 sm:p-6">
+        <div className="product-detail-gallery bg-ink p-2 sm:p-6">
           <div className="product-desktop-images hidden gap-4 md:grid md:grid-cols-2">
             {product.images.map((image, idx) => (
               <motion.div
@@ -1150,20 +989,50 @@ function ProductPage({
                   alt={product.title}
                   className="product-detail-image min-h-[65vh] w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <span className="absolute bottom-3 left-3 bg-ink/80 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-ivory">
+                <span className="absolute bottom-3 left-3 bg-ink/80 px-2.5 py-1 font-mono text-xs uppercase tracking-[0.16em] text-ivory font-semibold">
                   ANGLE 0{idx + 1}
                 </span>
               </motion.div>
             ))}
           </div>
 
-          {/* Mobile Carousel */}
-          <div className="product-carousel relative overflow-hidden md:hidden">
+          {/* Mobile Carousel with Touch Swipe and Pagination */}
+          <div
+            className="product-carousel relative overflow-hidden md:hidden select-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             <img
               src={product.images[activeImage] || product.images[0]}
               alt={product.title}
               className="product-detail-image h-full w-full object-cover"
             />
+
+            {/* Angle Indicator Badge */}
+            <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-ink/80 px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-ivory backdrop-blur-md font-semibold">
+              <span>ANGLE 0{activeImage + 1}</span>
+              <span className="text-white/40">/</span>
+              <span className="text-chartreuse font-medium">0{product.images.length}</span>
+            </div>
+
+            {/* Pagination dots */}
+            {product.images.length > 1 && (
+              <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 bg-ink/80 px-2.5 py-1.5 rounded-full backdrop-blur-md">
+                {product.images.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImage(i)}
+                    className={cx(
+                      "h-1.5 rounded-full transition-all",
+                      activeImage === i ? "w-4 bg-chartreuse" : "w-1.5 bg-white/40"
+                    )}
+                    aria-label={`View angle ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+
             {product.images.length > 1 && (
               <>
                 <button
@@ -1186,21 +1055,30 @@ function ProductPage({
         </div>
 
         {/* Specimen Details Right */}
-        <aside className="product-detail-info sticky top-20 h-fit px-6 py-10 sm:px-10 lg:px-14 bg-bone border-l border-ink/10">
+        <aside className="product-detail-info sticky top-20 h-fit px-4 py-8 sm:px-10 lg:px-14 bg-bone border-l border-ink/10 pb-36 md:pb-10">
+          {/* Breadcrumb Navigation */}
+          <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-taupe font-medium">
+            <button onClick={() => go("home")} className="hover:text-ink transition">Maison Makeeva</button>
+            <span>/</span>
+            <button onClick={() => go("collection", undefined, product.category)} className="hover:text-ink transition">{product.category}</button>
+            <span>/</span>
+            <span className="text-ink font-semibold truncate max-w-[180px]">{product.title}</span>
+          </nav>
+
           <div className="flex items-center justify-between border-b border-ink/15 pb-4">
-            <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-taupe">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-taupe font-semibold">
               Object {products.findIndex((item) => item.id === product.id) + 1} // SS26
             </span>
             <button
               onClick={() => onCuratorInspect(product)}
-              className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-chartreuse bg-ink px-2.5 py-1 transition hover:bg-graphite"
+              className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-chartreuse bg-ink px-3 py-1.5 transition hover:bg-graphite border border-white/10 font-semibold"
             >
-              <Eye size={12} />
+              <Eye size={14} className="text-chartreuse" />
               <span>Deep Specimen Inspect</span>
             </button>
           </div>
 
-          <p className="mt-6 font-mono text-[11px] uppercase tracking-wideLuxury text-taupe">
+          <p className="mt-6 font-mono text-xs uppercase tracking-wideLuxury text-taupe font-semibold">
             {product.category} · {product.collection.toUpperCase()}
           </p>
 
@@ -1208,19 +1086,19 @@ function ProductPage({
             {product.title}
           </h1>
 
-          <p className="mt-4 font-mono text-xl font-medium text-ink">
+          <p className="mt-4 font-mono text-xl font-bold text-chartreuse">
             {formatMoney(product.price)}
           </p>
 
-          <p className="mt-6 font-editorial text-base leading-relaxed text-graphite/80">
+          <p className="mt-6 font-editorial text-lg sm:text-xl leading-relaxed text-graphite/90">
             {product.description}
           </p>
 
           {/* Silhouette Gauge */}
           <div className="mt-6 border-y border-ink/10 py-4 font-mono text-xs">
-            <div className="flex justify-between text-taupe uppercase text-[10px]">
+            <div className="flex justify-between text-taupe uppercase text-xs font-medium">
               <span>Silhouette Cut</span>
-              <span className="text-ink font-semibold">Oversized Editorial</span>
+              <span className="text-chartreuse font-semibold">Oversized Editorial</span>
             </div>
             <div className="mt-2 flex gap-1">
               <span className="h-1.5 flex-1 bg-ink/20" />
@@ -1234,7 +1112,7 @@ function ProductPage({
           <div className="mt-6">
             <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-wideLuxury font-mono">
               <span className="text-taupe">Select Proportion</span>
-              <span className="text-taupe underline cursor-pointer">Size Guide</span>
+              <span className="text-chartreuse underline cursor-pointer font-medium">Size Guide</span>
             </div>
             <div className="grid grid-cols-5 gap-2">
               {product.sizes.map((item) => (
@@ -1244,8 +1122,8 @@ function ProductPage({
                   className={cx(
                     "border py-3 font-mono text-xs transition",
                     size === item
-                      ? "border-ink bg-ink text-ivory font-bold shadow-sm"
-                      : "border-ink/20 hover:border-ink text-ink"
+                      ? "border-chartreuse bg-ink text-chartreuse font-bold shadow-sm"
+                      : "border-ink/20 hover:border-chartreuse hover:text-chartreuse text-ink bg-white/40"
                   )}
                 >
                   {item}
@@ -1259,8 +1137,8 @@ function ProductPage({
             <button
               onClick={handleAdd}
               className={cx(
-                "flex items-center justify-center gap-2 py-4 font-mono text-xs uppercase tracking-[0.2em] font-medium transition duration-300",
-                added ? "bg-chartreuse text-ink" : "bg-ink text-ivory hover:bg-graphite"
+                "flex items-center justify-center gap-2 py-4 font-mono text-xs uppercase tracking-[0.2em] font-semibold transition duration-300",
+                added ? "bg-chartreuse text-ink border border-chartreuse font-bold shadow-md" : "bg-ink text-white hover:bg-chartreuse hover:text-ink"
               )}
             >
               {added ? (
@@ -1278,7 +1156,12 @@ function ProductPage({
 
             <button
               onClick={() => toggleWishlist(product)}
-              className="flex h-12 w-12 items-center justify-center border border-ink/20 text-ink transition hover:border-ink hover:text-chartreuse"
+              className={cx(
+                "flex h-12 w-12 items-center justify-center border transition",
+                wishlist.includes(product.id)
+                  ? "border-chartreuse bg-ink text-chartreuse"
+                  : "border-ink/20 text-ink hover:border-chartreuse hover:text-chartreuse hover:bg-ink/5"
+              )}
               aria-label={wishlist.includes(product.id) ? "Remove from wishlist" : "Add to wishlist"}
             >
               <Heart
@@ -1299,8 +1182,48 @@ function ProductPage({
         </aside>
       </section>
 
+      {/* Mobile Sticky Buy Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-3 border-t border-ink/15 bg-bone/95 px-4 py-3 pb-[max(0.75rem,calc(0.75rem+env(safe-area-inset-bottom)))] backdrop-blur-md md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+        <div className="min-w-0">
+          <p className="font-display text-xs uppercase truncate font-bold">{product.title}</p>
+          <div className="flex items-center gap-2 font-mono text-xs text-graphite">
+            <span className="font-bold text-chartreuse">{formatMoney(product.price)}</span>
+            <span>·</span>
+            <span className="text-taupe">{size}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => toggleWishlist(product)}
+            className={cx(
+              "flex h-10 w-10 items-center justify-center border transition",
+              wishlist.includes(product.id) ? "border-chartreuse bg-ink text-chartreuse" : "border-ink/20 text-ink"
+            )}
+            aria-label="Wishlist"
+          >
+            <Heart size={16} fill={wishlist.includes(product.id) ? "currentColor" : "none"} className={wishlist.includes(product.id) ? "text-chartreuse" : ""} />
+          </button>
+          <button
+            onClick={handleAdd}
+            className={cx(
+              "flex items-center gap-1.5 px-4 py-2.5 font-mono text-xs uppercase tracking-wider font-semibold transition",
+              added ? "bg-chartreuse text-ink font-bold" : "bg-ink text-white"
+            )}
+          >
+            {added ? (
+              <>
+                <Check size={14} />
+                <span>Added</span>
+              </>
+            ) : (
+              <span>Acquire</span>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Related Silhouettes Rail */}
-      <SalonExhibition
+      <AtelierExhibition
         title="Curator's Pairing"
         eyebrow="Complete the Uniform"
         description="Suggested garments styled to balance proportions and cultural presence."
@@ -1318,8 +1241,8 @@ function ProductPage({
 function Detail({ title, content }: { title: string; content: string }) {
   return (
     <div className="border-b border-ink/10 pb-4">
-      <p className="font-mono text-[10px] uppercase tracking-wideLuxury text-taupe">{title}</p>
-      <p className="mt-1.5 font-editorial text-sm leading-relaxed text-graphite/85">{content}</p>
+      <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe font-semibold">{title}</p>
+      <p className="mt-1.5 font-editorial text-base sm:text-lg leading-relaxed text-graphite/90">{content}</p>
     </div>
   );
 }
@@ -1342,7 +1265,7 @@ function LookbookPage({
       />
 
       {/* Campaign Studies Archives */}
-      <div className="mt-20 space-y-20 border-t border-ink/15 pt-20">
+      <div className="mt-12 sm:mt-20 space-y-12 sm:space-y-20 border-t border-ink/15 pt-12 sm:pt-20">
         {collections.map((collection, index) => (
           <motion.article
             key={collection.handle}
@@ -1350,35 +1273,35 @@ function LookbookPage({
             initial="hidden"
             whileInView="show"
             viewport={{ once: true }}
-            className={cx("grid items-center gap-10 lg:grid-cols-2", index % 2 === 1 && "lg:[&>*:first-child]:order-2")}
+            className={cx("grid items-center gap-6 sm:gap-10 lg:grid-cols-2", index % 2 === 1 && "lg:[&>*:first-child]:order-2")}
           >
             <div className="overflow-hidden border border-ink/15 bg-graphite shadow-xl">
               <img
                 src={collection.image}
                 alt={collection.title}
-                className="h-[75vh] w-full object-cover transition-transform duration-700 hover:scale-105"
+                className="h-[50vh] sm:h-[75vh] w-full object-cover transition-transform duration-700 hover:scale-105"
               />
             </div>
-            <div className="pb-8">
-              <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-chartreuse bg-ink px-3 py-1">
+            <div className="pb-4 sm:pb-8">
+              <span className="font-mono text-xs uppercase tracking-[0.24em] text-white bg-ink px-3 py-1 font-semibold">
                 {collection.season}
               </span>
-              <h2 className="mt-5 font-display text-3xl uppercase leading-none sm:text-5xl">
+              <h2 className="mt-4 sm:mt-5 font-display text-2xl sm:text-4xl lg:text-5xl uppercase leading-none">
                 {collection.title}
               </h2>
-              <p className="mt-6 max-w-xl font-editorial text-lg leading-relaxed text-graphite/80 italic">
+              <p className="mt-4 sm:mt-6 max-w-xl font-editorial text-lg sm:text-xl md:text-2xl leading-relaxed text-graphite/90 italic">
                 "{collection.description}"
               </p>
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
                 {collection.categories.map((c) => (
-                  <span key={c} className="border border-ink/20 px-2.5 py-1 font-mono text-[10px] text-taupe">
+                  <span key={c} className="border border-ink/20 px-2.5 py-1 font-mono text-xs text-taupe font-medium">
                     {c}
                   </span>
                 ))}
               </div>
               <button
                 onClick={() => go("collection")}
-                className="mt-8 flex items-center gap-3 border-b border-ink pb-1 font-mono text-xs uppercase tracking-[0.2em] font-semibold transition hover:text-taupe"
+                className="mt-6 sm:mt-8 flex items-center gap-3 border-b border-ink pb-1 font-mono text-xs uppercase tracking-[0.2em] font-semibold transition hover:text-taupe"
               >
                 <span>Shop This Campaign</span>
                 <ArrowRight size={14} />
@@ -1394,19 +1317,19 @@ function LookbookPage({
 function AboutPage({ go }: { go: (page: Page) => void }) {
   return (
     <PageShell eyebrow="About The House" title="Cultural memory, tailored defiance.">
-      <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-8 sm:gap-12 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="relative overflow-hidden border border-ink/15 bg-graphite shadow-2xl">
           <img
             src="https://www.maisonmakeeva.com/cdn/shop/files/D59A9997_8517fa4c-8149-4287-9bae-edb77c7a48af_2048x.jpg?v=1763735833"
             alt="Maison Makeeva craft"
-            className="h-[80vh] w-full object-cover"
+            className="h-[50vh] sm:h-[80vh] w-full object-cover"
           />
-          <span className="absolute bottom-4 left-4 bg-ink/80 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.2em] text-ivory">
+          <span className="absolute bottom-4 left-4 bg-ink/80 px-3 py-1 font-mono text-xs uppercase tracking-[0.2em] text-ivory font-semibold">
             FOUNDER ATELIER ARCHIVE
           </span>
         </div>
 
-        <div className="grid content-center gap-8">
+        <div className="grid content-center gap-6 sm:gap-8">
           {[
             [
               "Brand Story",
@@ -1425,22 +1348,22 @@ function AboutPage({ go }: { go: (page: Page) => void }) {
               "Every garment is treated as an image: practical enough to wear every day, uncompromising enough to be remembered as art.",
             ],
           ].map(([title, body]) => (
-            <div key={title} className="border-t border-ink/15 pt-6">
-              <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-taupe">{title}</span>
-              <p className="mt-3 font-display text-xl leading-relaxed sm:text-2xl text-ink">{body}</p>
+            <div key={title} className="border-t border-ink/15 pt-5 sm:pt-6">
+              <span className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">{title}</span>
+              <p className="mt-2 sm:mt-3 font-display text-lg sm:text-2xl leading-relaxed text-ink">{body}</p>
             </div>
           ))}
 
-          <div className="mt-4 pt-6 border-t border-ink/15 flex gap-4">
+          <div className="mt-4 pt-6 border-t border-ink/15 flex flex-col sm:flex-row gap-3 sm:gap-4">
             <button
               onClick={() => go("collection")}
-              className="bg-ink px-8 py-4 font-mono text-xs uppercase tracking-[0.2em] text-ivory hover:bg-graphite transition"
+              className="bg-ink px-6 sm:px-8 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-[0.2em] text-ivory hover:bg-graphite transition text-center min-h-[44px]"
             >
               Explore Collection
             </button>
             <button
               onClick={() => go("lookbook")}
-              className="border border-ink px-8 py-4 font-mono text-xs uppercase tracking-[0.2em] text-ink hover:bg-ink hover:text-ivory transition"
+              className="border border-ink px-6 sm:px-8 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-[0.2em] text-ink hover:bg-ink hover:text-ivory transition text-center min-h-[44px]"
             >
               View Monograph
             </button>
@@ -1454,27 +1377,27 @@ function AboutPage({ go }: { go: (page: Page) => void }) {
 function ContactPage() {
   return (
     <PageShell eyebrow="Client Services" title="Maison Makeeva Concierge">
-      <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-        <form className="grid gap-4 bg-ivory p-6 sm:p-10 border border-ink/15 shadow-sm">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-taupe">Direct Enquiry</p>
+      <div className="grid gap-6 sm:gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+        <form className="grid gap-4 bg-ivory p-4 sm:p-10 border border-ink/15 shadow-sm">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-taupe font-semibold">Direct Enquiry</p>
           {["Name", "Email", "Order / Archive Code"].map((field) => (
             <input
               key={field}
               placeholder={field}
-              className="border-b border-ink/30 bg-transparent py-4 font-mono text-xs outline-none placeholder:text-taupe focus:border-ink"
+              className="border-b border-ink/30 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none placeholder:text-taupe focus:border-ink"
             />
           ))}
           <textarea
             placeholder="Enquiry Details"
-            rows={5}
-            className="border-b border-ink/30 bg-transparent py-4 font-mono text-xs outline-none placeholder:text-taupe focus:border-ink"
+            rows={4}
+            className="border-b border-ink/30 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none placeholder:text-taupe focus:border-ink"
           />
-          <button className="mt-4 bg-ink px-6 py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-graphite">
+          <button className="mt-4 bg-ink px-6 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-graphite min-h-[44px]">
             Dispatch Enquiry
           </button>
         </form>
 
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           <Info
             title="Customer Support Concierge"
             lines={["Dedicated 24/7 client care", "maisonmakeeva@gmail.com", "WhatsApp concierge available for fitting advice"]}
@@ -1505,20 +1428,20 @@ function SearchPage({ go }: { go: (page: Page, product?: Product) => void }) {
         onChange={(event) => setQuery(event.target.value)}
         autoFocus
         placeholder="Search Sets, Tracksuits, Jerseys, Denim, Bags..."
-        className="w-full border-b-2 border-ink bg-transparent py-5 font-display text-2xl outline-none placeholder:text-taupe sm:text-4xl"
+        className="w-full border-b-2 border-ink bg-transparent py-4 sm:py-5 font-display text-xl sm:text-4xl outline-none placeholder:text-taupe focus:border-chartreuse transition"
       />
-      <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mt-8 sm:mt-12 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         {(query ? results : products.slice(0, 4)).map((product) => (
           <button
             key={product.id}
             onClick={() => go("product", product)}
-            className="text-left border border-ink/15 bg-bone p-3 group transition hover:shadow-lg"
+            className="text-left border border-ink/15 bg-bone p-2.5 sm:p-3 group transition hover:shadow-lg"
           >
             <div className="aspect-[3/4] w-full overflow-hidden bg-parchment">
               <img src={product.images[0]} alt={product.title} className="h-full w-full object-cover group-hover:scale-105 transition duration-500" />
             </div>
-            <p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-taupe">{product.category}</p>
-            <p className="mt-1 font-display text-sm uppercase">{product.title}</p>
+            <p className="mt-2 sm:mt-3 font-mono text-xs uppercase tracking-wider text-taupe truncate font-medium">{product.category}</p>
+            <p className="mt-1 font-display text-xs sm:text-sm uppercase truncate">{product.title}</p>
             <p className="mt-1 font-mono text-xs font-semibold">{formatMoney(product.price)}</p>
           </button>
         ))}
@@ -1543,7 +1466,7 @@ function WishlistPage({
   return (
     <PageShell eyebrow="Saved Artifacts" title="Your Curated Selection">
       {wished.length ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {wished.map((product, idx) => (
             <ProductCard3D
               key={product.id}
@@ -1567,24 +1490,24 @@ function WishlistPage({
 function AccountPage() {
   return (
     <PageShell eyebrow="Client Portal" title="Maison Makeeva Account">
-      <div className="grid gap-8 lg:grid-cols-2">
-        <form className="bg-ivory p-6 sm:p-10 border border-ink/15 shadow-sm">
+      <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
+        <form className="bg-ivory p-4 sm:p-10 border border-ink/15 shadow-sm">
           <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Sign In</p>
-          <input placeholder="Email" className="mt-8 w-full border-b border-ink/30 bg-transparent py-4 font-mono text-xs outline-none" />
-          <input placeholder="Password" type="password" className="mt-4 w-full border-b border-ink/30 bg-transparent py-4 font-mono text-xs outline-none" />
-          <button className="mt-8 w-full bg-ink px-6 py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-graphite">
+          <input placeholder="Email" className="mt-6 sm:mt-8 w-full border-b border-ink/30 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none" />
+          <input placeholder="Password" type="password" className="mt-4 w-full border-b border-ink/30 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none" />
+          <button className="mt-6 sm:mt-8 w-full bg-ink px-6 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-graphite min-h-[44px]">
             Access Client Profile
           </button>
         </form>
-        <div className="bg-parchment p-6 sm:p-10 border border-ink/15 shadow-sm">
+        <div className="bg-parchment p-4 sm:p-10 border border-ink/15 shadow-sm">
           <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Atelier Membership</p>
-          <h2 className="mt-5 font-display text-2xl sm:text-3xl uppercase leading-tight">
+          <h2 className="mt-4 sm:mt-5 font-display text-xl sm:text-3xl uppercase leading-tight">
             Create a Maison Makeeva client archive.
           </h2>
-          <div className="mt-8 grid gap-3 font-mono text-xs">
-            {["Historical Order Tracking", "Saved Fitting Proportions", "VIP Private Salon Access", "Archival Drops Invitation"].map((item) => (
+          <div className="mt-6 sm:mt-8 grid gap-3 font-mono text-xs">
+            {["Historical Order Tracking", "Saved Fitting Proportions", "VIP Private Atelier Access", "Archival Drops Invitation"].map((item) => (
               <p key={item} className="flex items-center gap-3 text-ink">
-                <Check size={16} className="text-chartreuse" /> {item}
+                <Check size={16} className="text-ink shrink-0" /> {item}
               </p>
             ))}
           </div>
@@ -1636,23 +1559,23 @@ function CartContent({
         {cart.map((item) => (
           <div
             key={`${item.product.id}-${item.size}`}
-            className="grid grid-cols-[100px_1fr] gap-5 border border-ink/15 bg-bone p-4"
+            className="grid grid-cols-[72px_1fr] sm:grid-cols-[100px_1fr] gap-3 sm:gap-5 border border-ink/15 bg-bone p-3 sm:p-4"
           >
             <img src={item.product.images[0]} alt={item.product.title} className="aspect-[3/4] w-full object-cover" />
             <div className="flex flex-col justify-between">
               <div>
-                <p className="font-display text-sm uppercase">{item.product.title}</p>
-                <p className="mt-1 font-mono text-[10px] text-taupe uppercase">
+                <p className="font-display text-xs sm:text-sm uppercase leading-snug">{item.product.title}</p>
+                <p className="mt-1 font-mono text-xs text-taupe uppercase truncate font-medium">
                   Proportion: {item.size} · {item.product.category}
                 </p>
-                <p className="mt-2 font-mono text-sm font-semibold">{formatMoney(item.product.price)}</p>
+                <p className="mt-1.5 sm:mt-2 font-mono text-xs sm:text-sm font-semibold text-chartreuse">{formatMoney(item.product.price)}</p>
               </div>
-              <div className="mt-4 flex w-fit items-center border border-ink/20 font-mono text-xs">
-                <button onClick={() => update(item, item.qty - 1)} className="p-2.5 hover:bg-ink/10">
+              <div className="mt-3 sm:mt-4 flex w-fit items-center border border-ink/20 font-mono text-xs">
+                <button onClick={() => update(item, item.qty - 1)} className="p-2 sm:p-2.5 hover:bg-ink/10" aria-label="Decrease quantity">
                   <Minus size={12} />
                 </button>
-                <span className="px-3">{item.qty}</span>
-                <button onClick={() => update(item, item.qty + 1)} className="p-2.5 hover:bg-ink/10">
+                <span className="px-2.5 sm:px-3 text-xs">{item.qty}</span>
+                <button onClick={() => update(item, item.qty + 1)} className="p-2 sm:p-2.5 hover:bg-ink/10" aria-label="Increase quantity">
                   <Plus size={12} />
                 </button>
               </div>
@@ -1661,22 +1584,18 @@ function CartContent({
         ))}
       </div>
 
-      <aside className="h-fit bg-ivory p-6 sm:p-8 border border-ink/15 shadow-sm">
+      <aside className="h-fit bg-ivory p-4 sm:p-8 border border-ink/15 shadow-sm">
         <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Order Summary</p>
-        <div className="mt-6 space-y-4 font-mono text-xs">
+        <div className="mt-4 sm:mt-6 space-y-4 font-mono text-xs">
           <div className="flex justify-between">
             <span>Subtotal</span>
             <span className="font-semibold text-sm">{formatMoney(subtotal)}</span>
           </div>
-          <input
-            placeholder="Atelier Voucher Code"
-            className="w-full border-b border-ink/30 bg-transparent py-3 font-mono text-xs outline-none placeholder:text-taupe"
-          />
         </div>
-        <button className="mt-8 w-full bg-ink px-6 py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-graphite">
+        <button className="mt-6 sm:mt-8 w-full bg-chartreuse px-4 sm:px-6 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-wideLuxury text-ink font-bold transition hover:bg-white hover:text-ink shadow-sm min-h-[44px]">
           Proceed with Shopify Checkout
         </button>
-        <p className="mt-4 font-mono text-[10px] leading-relaxed text-taupe">
+        <p className="mt-3 sm:mt-4 font-mono text-xs leading-relaxed text-taupe">
           Shopify Payments, tax calculations, and customs clearance are integrated directly for seamless checkout.
         </p>
       </aside>
@@ -1684,30 +1603,59 @@ function CartContent({
   );
 }
 
-function Newsletter() {
+function Newsletter({ go }: { go?: (page: Page) => void }) {
+  const [email, setEmail] = useState("");
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setSubscribed(true);
+    setTimeout(() => {
+      setEmail("");
+      setSubscribed(false);
+    }, 4000);
+  };
+
   return (
-    <section className="bg-parchment px-5 py-20 sm:px-10 lg:px-16 border-t border-ink/15">
-      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-end">
+    <section className="relative z-10 bg-parchment/90 backdrop-blur-sm px-4 py-14 sm:px-10 sm:py-20 lg:px-16 border-t border-ink/15">
+      <div className="mx-auto grid max-w-6xl gap-6 sm:gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-end">
         <div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-taupe">
+          <span className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">
             Atelier Dispatch
           </span>
-          <h2 className="mt-4 font-display text-2xl leading-tight sm:text-4xl uppercase">
-            Private Salon & Archival Drops.
+          <h2 className="mt-2 sm:mt-4 font-display text-xl leading-tight sm:text-4xl uppercase">
+            Private Atelier & Archival Drops.
           </h2>
-          <p className="mt-2 font-editorial text-sm text-graphite/80">
+          <p className="mt-2 font-editorial text-sm sm:text-base text-graphite/90">
             Receive early access to limited edition pieces, runway monographs, and private studio presentations.
           </p>
         </div>
-        <form className="flex border-b-2 border-ink">
-          <input
-            placeholder="Enter client email address"
-            className="min-w-0 flex-1 bg-transparent py-4 font-mono text-xs outline-none placeholder:text-taupe"
-          />
-          <button className="px-6 font-mono text-xs uppercase tracking-wideLuxury font-semibold hover:text-taupe transition">
-            Subscribe
-          </button>
-        </form>
+        <div>
+          {subscribed ? (
+            <div className="flex items-center gap-3 border-b-2 border-chartreuse py-3 sm:py-4 text-chartreuse font-mono text-xs uppercase tracking-wider">
+              <Check size={16} />
+              <span>Registered for Maison Makeeva private dispatches.</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex border-b-2 border-ink focus-within:border-chartreuse transition">
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter client email address"
+                required
+                type="email"
+                className="min-w-0 flex-1 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none placeholder:text-taupe"
+              />
+              <button
+                type="submit"
+                className="px-4 sm:px-6 font-mono text-xs uppercase tracking-wideLuxury font-semibold text-chartreuse hover:text-ink transition shrink-0 min-h-[44px]"
+              >
+                Subscribe
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -1715,14 +1663,14 @@ function Newsletter() {
 
 function Footer({ go }: { go: (page: Page) => void }) {
   return (
-    <footer className="bg-ink px-5 py-16 text-ivory sm:px-10 lg:px-16 border-t border-ivory/15">
-      <div className="grid gap-12 lg:grid-cols-[1.3fr_1fr_1fr]">
+    <footer className="relative z-10 bg-ink px-4 py-12 text-ivory sm:px-10 sm:py-16 border-t border-ivory/15">
+      <div className="grid gap-8 sm:gap-12 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr]">
         <div>
-          <p className="font-display text-2xl uppercase tracking-[0.16em]">Maison Makeeva</p>
-          <p className="mt-4 max-w-md font-editorial text-sm leading-relaxed text-ivory/70">
+          <p className="font-display text-xl sm:text-2xl uppercase tracking-[0.16em]">Maison Makeeva</p>
+          <p className="mt-3 sm:mt-4 max-w-md font-editorial text-sm sm:text-base leading-relaxed text-ivory/85">
             Ready-to-wear luxury fashion house exploring cultural identity, heavy fabrics, and sculptural street-couture silhouettes.
           </p>
-          <div className="mt-6 flex gap-4 font-mono text-[10px] uppercase tracking-[0.18em] text-chartreuse">
+          <div className="mt-4 sm:mt-6 flex gap-3 sm:gap-4 font-mono text-xs uppercase tracking-[0.16em] sm:tracking-[0.18em] text-chartreuse font-semibold">
             <span>PARIS</span> · <span>ACCRA</span> · <span>WORLDWIDE</span>
           </div>
         </div>
@@ -1732,28 +1680,28 @@ function Footer({ go }: { go: (page: Page) => void }) {
             <button
               key={link.page}
               onClick={() => go(link.page)}
-              className="text-left uppercase tracking-wideLuxury text-ivory/75 hover:text-chartreuse transition"
+              className="text-left uppercase tracking-wideLuxury text-ivory/75 hover:text-chartreuse transition py-1"
             >
               {link.label}
             </button>
           ))}
-          <button onClick={() => go("wishlist")} className="text-left uppercase tracking-wideLuxury text-ivory/75 hover:text-chartreuse transition">
+          <button onClick={() => go("wishlist")} className="text-left uppercase tracking-wideLuxury text-ivory/75 hover:text-chartreuse transition py-1">
             Wishlist
           </button>
-          <button onClick={() => go("cart")} className="text-left uppercase tracking-wideLuxury text-ivory/75 hover:text-chartreuse transition">
+          <button onClick={() => go("cart")} className="text-left uppercase tracking-wideLuxury text-ivory/75 hover:text-chartreuse transition py-1">
             Bag
           </button>
         </div>
 
-        <div className="font-mono text-xs leading-relaxed text-ivory/65 space-y-2">
-          <p className="hover:text-ivory cursor-pointer">Terms & Conditions</p>
-          <p className="hover:text-ivory cursor-pointer">Privacy & Archival Policy</p>
-          <p className="hover:text-ivory cursor-pointer">Courier & Returns Matrix</p>
-          <p className="text-chartreuse">CURRENCY: EUR / USD / GBP</p>
+        <div className="font-mono text-xs leading-relaxed text-ivory/65 space-y-2 md:col-span-2 lg:col-span-1">
+          <p className="hover:text-chartreuse cursor-pointer transition">Terms & Conditions</p>
+          <p className="hover:text-chartreuse cursor-pointer transition">Privacy & Archival Policy</p>
+          <p className="hover:text-chartreuse cursor-pointer transition">Courier & Returns Matrix</p>
+          <p className="text-chartreuse font-semibold">CURRENCY: EUR / USD / GBP</p>
         </div>
       </div>
 
-      <div className="mt-14 pt-8 border-t border-ivory/10 flex flex-col sm:flex-row items-center justify-between font-mono text-[10px] text-ivory/45 gap-4">
+      <div className="mt-10 sm:mt-14 pt-6 sm:pt-8 border-t border-ivory/10 flex flex-col sm:flex-row items-center justify-between font-mono text-xs text-ivory/60 gap-3 text-center sm:text-left font-medium">
         <p>© 2026 Maison Makeeva. Uncompromising Craft. All rights reserved.</p>
         <p>Curated for contemporary art & runway collectors.</p>
       </div>
@@ -1763,9 +1711,15 @@ function Footer({ go }: { go: (page: Page) => void }) {
 
 function PolicyStrip() {
   return (
-    <section className="grid border-y border-ink/10 bg-bone md:grid-cols-3">
-      {policies.map((policy) => (
-        <div key={policy} className="border-ink/10 p-6 text-center font-mono text-[11px] uppercase leading-relaxed tracking-wideLuxury md:border-r">
+    <section className="relative z-10 grid border-y border-ink/10 bg-bone/90 backdrop-blur-sm sm:grid-cols-3">
+      {policies.map((policy, idx) => (
+        <div
+          key={policy}
+          className={cx(
+            "border-ink/10 p-4 sm:p-6 text-center font-mono text-xs sm:text-sm uppercase leading-relaxed tracking-wideLuxury font-medium",
+            idx < policies.length - 1 && "border-b sm:border-b-0 sm:border-r"
+          )}
+        >
           {policy}
         </div>
       ))}
@@ -1774,16 +1728,7 @@ function PolicyStrip() {
 }
 
 function Reveal({ children }: { children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 28 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.12, margin: "0px 0px -8%" }}
-      transition={{ duration: 0.8, ease: easeOutExpo }}
-    >
-      {children}
-    </motion.div>
-  );
+  return <ScrollReveal variant="fadeUp">{children}</ScrollReveal>;
 }
 
 function Section({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }) {
@@ -1793,12 +1738,12 @@ function Section({ eyebrow, title, children }: { eyebrow: string; title: string;
       whileInView="show"
       viewport={{ once: true, margin: "-80px" }}
       variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}
-      className="px-5 py-20 sm:px-10 lg:px-16 max-w-[1700px] mx-auto"
+      className="relative z-10 px-4 py-14 sm:px-10 sm:py-20 lg:px-16 max-w-[1700px] mx-auto"
     >
-      <motion.div variants={fadeUp} className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+      <motion.div variants={fadeUp} className="mb-6 sm:mb-10 flex flex-col justify-between gap-3 sm:gap-4 md:flex-row md:items-end">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-taupe">{eyebrow}</p>
-          <h2 className="mt-3 font-display text-3xl uppercase leading-none sm:text-4xl lg:text-5xl">{title}</h2>
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">{eyebrow}</p>
+          <h2 className="mt-2 sm:mt-3 font-display text-2xl uppercase leading-none sm:text-4xl lg:text-5xl">{title}</h2>
         </div>
       </motion.div>
       <motion.div variants={fadeUp}>{children}</motion.div>
@@ -1808,10 +1753,10 @@ function Section({ eyebrow, title, children }: { eyebrow: string; title: string;
 
 function PageShell({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }) {
   return (
-    <section className="min-h-screen px-5 pb-20 pt-32 sm:px-10 lg:px-16 max-w-[1700px] mx-auto">
-      <motion.div variants={fadeUp} initial="hidden" animate="show" className="mb-12 max-w-5xl">
-        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-taupe">{eyebrow}</p>
-        <h1 className="mt-3 font-display text-3xl uppercase leading-none sm:text-5xl lg:text-6xl">{title}</h1>
+    <section className="relative z-10 min-h-screen px-4 pb-16 pt-24 sm:px-10 sm:pb-20 sm:pt-32 lg:px-16 max-w-[1700px] mx-auto">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" className="mb-8 sm:mb-12 max-w-5xl">
+        <p className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">{eyebrow}</p>
+        <h1 className="mt-2 sm:mt-3 font-display text-2xl xs:text-3xl uppercase leading-none sm:text-5xl lg:text-6xl break-words">{title}</h1>
       </motion.div>
       {children}
     </section>
@@ -1821,9 +1766,9 @@ function PageShell({ eyebrow, title, children }: { eyebrow: string; title: strin
 function Info({ title, lines }: { title: string; lines: string[] }) {
   return (
     <div className="border-t border-ink/15 pt-6">
-      <p className="font-mono text-[10px] uppercase tracking-wideLuxury text-taupe">{title}</p>
+      <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe font-semibold">{title}</p>
       {lines.map((line) => (
-        <p key={line} className="mt-2 font-editorial text-sm leading-relaxed text-graphite/80">
+        <p key={line} className="mt-2 font-editorial text-base sm:text-lg leading-relaxed text-graphite/90">
           {line}
         </p>
       ))}
@@ -1838,7 +1783,7 @@ function EmptyState({ title, action, onClick }: { title: string; action: string;
         <h2 className="font-display text-2xl uppercase">{title}</h2>
         <button
           onClick={onClick}
-          className="mt-6 inline-block border-b-2 border-ink pb-1 font-mono text-xs uppercase tracking-[0.2em] font-semibold hover:text-taupe transition"
+          className="mt-6 inline-block border-b-2 border-chartreuse text-ink pb-1 font-mono text-xs uppercase tracking-[0.2em] font-semibold hover:text-chartreuse transition"
         >
           {action} →
         </button>
@@ -1847,7 +1792,28 @@ function EmptyState({ title, action, onClick }: { title: string; action: string;
   );
 }
 
-function MobileMenu({ open, onClose, go }: { open: boolean; onClose: () => void; go: (page: Page, product?: Product) => void }) {
+function MobileMenu({
+  open,
+  onClose,
+  go,
+}: {
+  open: boolean;
+  onClose: () => void;
+  go: (page: Page, product?: Product, category?: string) => void;
+}) {
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+
+  const categoryShortcuts = [
+    { label: "Sets & Tracksuits", count: "4 pieces" },
+    { label: "Denim & Outerwear", count: "3 pieces" },
+    { label: "Jerseys & Tops", count: "2 pieces" },
+    { label: "Bags & Carryalls", count: "1 piece" },
+  ];
+
+  const toggleExpand = (label: string) => {
+    setExpandedMenu((prev) => (prev === label ? null : label));
+  };
+
   return (
     <AnimatePresence>
       {open && (
@@ -1855,51 +1821,147 @@ function MobileMenu({ open, onClose, go }: { open: boolean; onClose: () => void;
           initial={{ x: "-100%" }}
           animate={{ x: 0 }}
           exit={{ x: "-100%" }}
-          transition={{ duration: 0.5, ease: easeOutExpo }}
-          className="fixed inset-0 z-[110] overflow-y-auto bg-ink p-6 text-ivory"
+          transition={{ duration: 0.45, ease: easeOutExpo }}
+          className="fixed inset-0 z-[110] overflow-y-auto bg-black p-4 sm:p-6 text-ivory flex flex-col justify-between pt-safe pb-safe"
         >
-          <div className="flex items-center justify-between border-b border-ivory/15 pb-6">
-            <p className="font-display text-lg uppercase tracking-[0.18em]">Maison Makeeva</p>
-            <button onClick={onClose} aria-label="Close menu" className="p-1 text-ivory hover:text-chartreuse">
-              <X size={24} />
-            </button>
-          </div>
-
-          <div className="mt-8 space-y-8">
-            {shopifyMenus.map((menu) => (
-              <div key={menu.label} className="border-b border-ivory/10 pb-6">
-                <button
-                  onClick={() => {
-                    onClose();
-                    go(menu.page);
-                  }}
-                  className="text-left font-display text-2xl uppercase tracking-[0.12em] text-ivory hover:text-chartreuse transition"
-                >
-                  {menu.label}
-                </button>
-                <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-xs">
-                  {menu.columns.flatMap((column) => column.items).slice(0, 4).map((item) => (
-                    <button
-                      key={`${menu.label}-${item}`}
-                      onClick={() => {
-                        onClose();
-                        go(menu.page);
-                      }}
-                      className="text-left text-[11px] uppercase tracking-wide text-stone hover:text-ivory"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
+          <div>
+            <div className="flex items-center justify-between border-b border-ivory/15 pb-4 sm:pb-6">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center border border-chartreuse font-mono text-xs font-bold text-chartreuse">
+                  MM
+                </span>
+                <p className="font-display text-base sm:text-lg uppercase tracking-[0.16em]">Maison Makeeva</p>
               </div>
-            ))}
+              <button
+                onClick={onClose}
+                aria-label="Close menu"
+                className="p-2 text-ivory hover:text-chartreuse transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Direct Category Shortcuts for Mobile */}
+            <div className="mt-5 border-b border-ivory/10 pb-5">
+              <p className="font-mono text-xs uppercase tracking-[0.24em] text-ivory/60 mb-3 font-semibold">
+                Shop By Category
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {categoryShortcuts.map((cat) => (
+                  <button
+                    key={cat.label}
+                    onClick={() => {
+                      onClose();
+                      go("collection", undefined, cat.label);
+                    }}
+                    className="border border-ivory/15 bg-white/[0.04] p-3 text-left hover:border-chartreuse hover:bg-white/[0.08] transition group min-h-[52px]"
+                  >
+                    <span className="font-mono text-xs uppercase tracking-wider text-ivory block leading-tight font-medium group-hover:text-chartreuse transition truncate">
+                      {cat.label}
+                    </span>
+                    <span className="font-mono text-xs text-chartreuse mt-1 block font-medium">
+                      {cat.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Expandable Navigation Menus */}
+            <div className="mt-5 space-y-3">
+              {shopifyMenus.map((menu) => {
+                const isExpanded = expandedMenu === menu.label;
+                return (
+                  <div key={menu.label} className="border-b border-ivory/10 pb-3">
+                    <div className="flex items-center justify-between w-full">
+                      <button
+                        onClick={() => {
+                          onClose();
+                          go(menu.page);
+                        }}
+                        className="text-left font-display text-xl sm:text-2xl uppercase tracking-[0.12em] text-ivory hover:text-chartreuse transition flex-1 py-1"
+                      >
+                        {menu.label}
+                      </button>
+                      <button
+                        onClick={() => toggleExpand(menu.label)}
+                        className="p-2 text-ivory/60 hover:text-chartreuse transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label={`Toggle ${menu.label} subcategories`}
+                      >
+                        <ChevronDown
+                          size={18}
+                          className={cx("transition-transform duration-200", isExpanded && "rotate-180 text-chartreuse")}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Accordion Sub-Items */}
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="overflow-hidden pl-3 pt-2 space-y-2 border-l border-chartreuse/40 mt-2"
+                        >
+                          {menu.columns.flatMap((col) => col.items).map((item) => (
+                            <button
+                              key={item}
+                              onClick={() => {
+                                onClose();
+                                go(
+                                  "collection",
+                                  undefined,
+                                  item.includes("Set")
+                                    ? "Sets & Tracksuits"
+                                    : item.includes("Jersey")
+                                    ? "Jerseys & Tops"
+                                    : item.includes("Duffle")
+                                    ? "Bags & Carryalls"
+                                    : "All"
+                                );
+                              }}
+                              className="block text-left font-sans text-xs text-white/80 hover:text-chartreuse py-1.5 transition truncate w-full"
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="mt-10 space-y-4 border-t border-ivory/15 pt-6 font-mono text-xs uppercase tracking-wideLuxury text-stone">
-            <button onClick={() => { onClose(); go("search"); }} className="block text-left hover:text-ivory">Search</button>
-            <button onClick={() => { onClose(); go("wishlist"); }} className="block text-left hover:text-ivory">Wishlist</button>
-            <button onClick={() => { onClose(); go("cart"); }} className="block text-left hover:text-ivory">Bag</button>
-            <button onClick={() => { onClose(); go("account"); }} className="block text-left hover:text-ivory">Account</button>
+          {/* Quick Utility Actions */}
+          <div className="mt-8 border-t border-ivory/15 pt-5 font-mono text-xs uppercase tracking-wideLuxury text-stone grid grid-cols-2 gap-2">
+            <button
+              onClick={() => { onClose(); go("search"); }}
+              className="flex items-center justify-center gap-2 p-3 border border-ivory/10 text-center hover:text-chartreuse hover:border-chartreuse transition min-h-[44px]"
+            >
+              <Search size={14} /> Search
+            </button>
+            <button
+              onClick={() => { onClose(); go("wishlist"); }}
+              className="flex items-center justify-center gap-2 p-3 border border-ivory/10 text-center hover:text-chartreuse hover:border-chartreuse transition min-h-[44px]"
+            >
+              <Heart size={14} /> Wishlist
+            </button>
+            <button
+              onClick={() => { onClose(); go("cart"); }}
+              className="flex items-center justify-center gap-2 p-3 border border-ivory/10 text-center hover:text-chartreuse hover:border-chartreuse transition min-h-[44px]"
+            >
+              <ShoppingBag size={14} /> Bag
+            </button>
+            <button
+              onClick={() => { onClose(); go("account"); }}
+              className="flex items-center justify-center gap-2 p-3 border border-ivory/10 text-center hover:text-chartreuse hover:border-chartreuse transition min-h-[44px]"
+            >
+              <User size={14} /> Account
+            </button>
           </div>
         </motion.div>
       )}
@@ -1920,10 +1982,14 @@ function SearchOverlay({ open, onClose, go }: { open: boolean; onClose: () => vo
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[130] bg-bone p-5 pt-20 sm:p-10 sm:pt-24 backdrop-blur-lg"
+          className="fixed inset-0 z-[130] bg-bone p-4 pt-16 sm:p-10 sm:pt-24 backdrop-blur-lg overflow-y-auto pt-safe pb-safe"
         >
-          <button onClick={onClose} className="absolute right-6 top-6 p-2 text-ink hover:text-taupe" aria-label="Close search">
-            <X size={24} />
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 sm:right-6 sm:top-6 p-2 text-ink hover:text-chartreuse transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Close search"
+          >
+            <X size={22} />
           </button>
           <div className="mx-auto max-w-4xl">
             <input
@@ -1931,21 +1997,21 @@ function SearchOverlay({ open, onClose, go }: { open: boolean; onClose: () => vo
               onChange={(event) => setQuery(event.target.value)}
               autoFocus
               placeholder="Search by silhouette, material, or code..."
-              className="w-full border-b-2 border-ink bg-transparent pb-4 font-display text-2xl outline-none sm:text-4xl"
+              className="w-full border-b-2 border-ink bg-transparent pb-3 sm:pb-4 font-display text-xl sm:text-4xl outline-none focus:border-chartreuse transition"
             />
-            <div className="mt-6 flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-wideLuxury text-taupe">
-              <span className="mr-2">Popular Searches:</span>
+            <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 font-mono text-xs uppercase tracking-wideLuxury text-taupe font-medium">
+              <span className="mr-2 self-center font-semibold">Popular Searches:</span>
               {["Tracksuit", "Denim", "Jersey", "Jumpsuit", "Duffle Bag", "Velvet"].map((trend) => (
                 <button
                   key={trend}
                   onClick={() => setQuery(trend)}
-                  className="border border-ink/20 px-2.5 py-1 hover:border-ink hover:text-ink"
+                  className="border border-ink/20 px-3 py-1 text-xs hover:border-chartreuse hover:text-chartreuse transition min-h-[32px]"
                 >
                   {trend}
                 </button>
               ))}
             </div>
-            <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="mt-8 sm:mt-12 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
               {(query ? results : products.slice(0, 4)).map((product) => (
                 <button
                   key={product.id}
@@ -1953,14 +2019,14 @@ function SearchOverlay({ open, onClose, go }: { open: boolean; onClose: () => vo
                     onClose();
                     go("product", product);
                   }}
-                  className="text-left border border-ink/10 bg-ivory p-3 group hover:shadow-lg transition"
+                  className="text-left border border-ink/10 bg-ivory p-2.5 sm:p-3 group hover:border-chartreuse/60 hover:shadow-lg transition"
                 >
                   <div className="aspect-[3/4] w-full overflow-hidden bg-parchment">
                     <img src={product.images[0]} alt={product.title} className="h-full w-full object-cover group-hover:scale-105 transition" />
                   </div>
-                  <p className="mt-3 font-mono text-[9px] uppercase tracking-wider text-taupe">{product.category}</p>
-                  <p className="mt-1 font-display text-xs uppercase leading-snug">{product.title}</p>
-                  <p className="mt-1 font-mono text-xs font-semibold">{formatMoney(product.price)}</p>
+                  <p className="mt-2 sm:mt-3 font-mono text-xs uppercase tracking-wider text-taupe truncate font-medium">{product.category}</p>
+                  <p className="mt-1 font-display text-xs uppercase leading-snug group-hover:text-chartreuse transition truncate">{product.title}</p>
+                  <p className="mt-1 font-mono text-xs font-semibold text-chartreuse">{formatMoney(product.price)}</p>
                 </button>
               ))}
             </div>
@@ -1998,16 +2064,20 @@ function CartDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.45, ease: easeOutExpo }}
-            className="ml-auto h-full w-full max-w-xl overflow-y-auto bg-bone p-6 sm:p-8 border-l border-ink/15 shadow-2xl"
+            className="ml-auto h-full w-full max-w-xl overflow-y-auto bg-bone p-4 sm:p-8 border-l border-ink/15 shadow-2xl pt-safe pb-safe"
           >
-            <div className="mb-8 flex items-center justify-between border-b border-ink/15 pb-4">
+            <div className="mb-6 sm:mb-8 flex items-center justify-between border-b border-ink/15 pb-4">
               <div>
-                <p className="font-display text-2xl uppercase">Object Bag</p>
-                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-taupe">
+                <p className="font-display text-xl sm:text-2xl uppercase">Object Bag</p>
+                <span className="font-mono text-xs uppercase tracking-[0.2em] text-chartreuse font-semibold">
                   Maison Makeeva SS26
                 </span>
               </div>
-              <button onClick={onClose} aria-label="Close cart" className="p-2 text-ink hover:text-taupe">
+              <button
+                onClick={onClose}
+                aria-label="Close cart"
+                className="p-2 text-ink hover:text-chartreuse transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
                 <X size={20} />
               </button>
             </div>

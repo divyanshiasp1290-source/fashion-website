@@ -110,38 +110,74 @@ export function ResnBrandIntro({ onComplete }: ResnBrandIntroProps) {
         {/* Centerpiece: Self-Drawing Geometric MM Monogram & Kinetic Typography */}
         <div className="mx-auto flex flex-col items-center justify-center text-center px-2">
           {/* Animated SVG Monogram Vector */}
-          <div className="relative h-20 w-20 sm:h-36 sm:w-36 mb-4 sm:mb-6">
-            <svg viewBox="0 0 120 120" className="h-full w-full">
-              {/* Outer aperture circle */}
-              <motion.circle
-                cx="60"
-                cy="60"
-                r="56"
-                fill="none"
-                stroke="rgba(231, 139, 115, 0.4)"
-                strokeWidth="1.5"
-                strokeDasharray="360"
-                initial={{ strokeDashoffset: 360, rotate: 0 }}
-                animate={{ strokeDashoffset: 0, rotate: 180 }}
-                transition={{ duration: 1.8, ease: easeOutExpo }}
+          <div className="relative h-24 w-28 sm:h-40 sm:w-48 mb-4 sm:mb-6">
+            <svg viewBox="0 0 462 392" className="h-full w-full drop-shadow-[0_4px_24px_rgba(231,139,115,0.25)]">
+              {/* Central Structural M */}
+              <motion.path
+                d="M 387 0 L 387 338 L 335 390 L 334 388 L 333 149 L 242 239 L 239 239 L 230 231 L 143 149 L 142 388 L 139 389 L 78 337 L 75 332 L 75 1 L 81 4 L 240 146 L 387 0 Z"
+                stroke="#e78b73"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="1400"
+                initial={{ strokeDashoffset: 1400, fillOpacity: 0 }}
+                animate={{ strokeDashoffset: 0, fillOpacity: 1 }}
+                transition={{
+                  strokeDashoffset: { duration: 1.6, ease: easeOutExpo },
+                  fillOpacity: { duration: 0.8, delay: 0.8, ease: "easeOut" },
+                }}
+                fill="#e78b73"
               />
 
-              {/* Inner geometric crosshairs */}
-              <line x1="60" y1="10" x2="60" y2="110" stroke="rgba(245, 243, 237, 0.2)" strokeWidth="1" />
-              <line x1="10" y1="60" x2="110" y2="60" stroke="rgba(245, 243, 237, 0.2)" strokeWidth="1" />
-
-              {/* Architectural M M lines */}
+              {/* Outer Left Wing */}
               <motion.path
-                d="M 28 85 L 28 35 L 44 65 L 60 35 L 76 65 L 92 35 L 92 85"
-                fill="none"
+                d="M 13 68 L 68 146 L 68 222 L 54 205 L 51 206 L 48 317 L 0 280 L 13 68 Z"
                 stroke="#e78b73"
-                strokeWidth="3.5"
-                strokeLinecap="square"
-                strokeLinejoin="miter"
-                strokeDasharray="400"
-                initial={{ strokeDashoffset: 400 }}
-                animate={{ strokeDashoffset: 0 }}
-                transition={{ duration: 1.6, ease: easeOutExpo }}
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="800"
+                initial={{ strokeDashoffset: 800, fillOpacity: 0 }}
+                animate={{ strokeDashoffset: 0, fillOpacity: 1 }}
+                transition={{
+                  strokeDashoffset: { duration: 1.4, ease: easeOutExpo, delay: 0.15 },
+                  fillOpacity: { duration: 0.8, delay: 0.85, ease: "easeOut" },
+                }}
+                fill="#e78b73"
+              />
+
+              {/* Outer Right Wing */}
+              <motion.path
+                d="M 448 68 L 461 281 L 414 317 L 411 212 L 409 204 L 394 222 L 394 146 L 448 68 Z"
+                stroke="#e78b73"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="800"
+                initial={{ strokeDashoffset: 800, fillOpacity: 0 }}
+                animate={{ strokeDashoffset: 0, fillOpacity: 1 }}
+                transition={{
+                  strokeDashoffset: { duration: 1.4, ease: easeOutExpo, delay: 0.15 },
+                  fillOpacity: { duration: 0.8, delay: 0.85, ease: "easeOut" },
+                }}
+                fill="#e78b73"
+              />
+
+              {/* Inner Nested V / Chevron (Two M inside One M effect) */}
+              <motion.path
+                d="M 174 218 L 238 280 L 241 280 L 300 218 L 300 282 L 237 343 L 175 280 L 174 218 Z"
+                stroke="#f5f3ed"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="600"
+                initial={{ strokeDashoffset: 600, fillOpacity: 0 }}
+                animate={{ strokeDashoffset: 0, fillOpacity: 1 }}
+                transition={{
+                  strokeDashoffset: { duration: 1.2, ease: easeOutExpo, delay: 0.3 },
+                  fillOpacity: { duration: 0.8, delay: 0.9, ease: "easeOut" },
+                }}
+                fill="#f5f3ed"
               />
             </svg>
           </div>

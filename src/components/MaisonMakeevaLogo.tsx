@@ -1,0 +1,57 @@
+import React from "react";
+
+export interface MaisonMakeevaLogoProps extends React.SVGProps<SVGSVGElement> {
+  className?: string;
+  size?: number | string;
+}
+
+/**
+ * Official Maison Makeeva Brand Monogram
+ * Exact layered geometric M structure:
+ * - Outer left & right angular wings
+ * - Central structural M with sharp peaks
+ * - Inner nested V / chevron reflecting the central M
+ */
+export const MaisonMakeevaLogo: React.FC<MaisonMakeevaLogoProps> = ({
+  className = "h-8 w-auto",
+  size,
+  ...props
+}) => {
+  return (
+    <svg
+      viewBox="0 0 462 392"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={size ? { width: size, height: "auto" } : undefined}
+      aria-label="Maison Makeeva Monogram"
+      role="img"
+      {...props}
+    >
+      {/* Central Structural M */}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M 387 0 L 387 338 L 335 390 L 334 388 L 333 149 L 242 239 L 239 239 L 230 231 L 143 149 L 142 388 L 139 389 L 78 337 L 75 332 L 75 1 L 81 4 L 240 146 L 387 0 Z"
+      />
+      {/* Outer Left Wing */}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M 13 68 L 68 146 L 68 222 L 54 205 L 51 206 L 48 317 L 0 280 L 13 68 Z"
+      />
+      {/* Outer Right Wing */}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M 448 68 L 461 281 L 414 317 L 411 212 L 409 204 L 394 222 L 394 146 L 448 68 Z"
+      />
+      {/* Inner Nested V / Chevron (Two M inside One M effect) */}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M 174 218 L 238 280 L 241 280 L 300 218 L 300 282 L 237 343 L 175 280 L 174 218 Z"
+      />
+    </svg>
+  );
+};

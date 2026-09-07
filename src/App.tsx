@@ -17,6 +17,7 @@ import {
   Phone,
   Plus,
   Search,
+  ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
   Sparkles,
@@ -32,10 +33,17 @@ import { ResnBrandIntro } from "./components/ResnBrandIntro";
 import { RunwayLookbook } from "./components/RunwayLookbook";
 import { ScrollReveal, ScrollDriven3D, refreshScrollTriggers } from "./components/ScrollAnimations";
 import { SignatureHero } from "./components/SignatureHero";
-import { collections, policies, products, categoryStructure, navGroups, archiveSections, type ArchiveSection, type Collection, type Product } from "./data/catalog";
+import { collections, policies, products as staticProducts, categoryStructure, navGroups, archiveSections, type ArchiveSection, type Collection, type Product } from "./data/catalog";
 import { cx, formatMoney, getPrimaryProduct } from "./utils";
+import { AdminPanel } from "./components/admin/AdminPanel";
+import { CheckoutModal } from "./components/CheckoutModal";
+import { MaisonMakeevaLogo } from "./components/MaisonMakeevaLogo";
+import { useAuth } from "./context/AuthContext";
+import { api } from "./services/api";
+import { mapDbProductToCatalogProduct } from "./utils/catalogAdapter";
+import type { DbOrder } from "./types/database";
 
-type Page = "home" | "collection" | "product" | "lookbook" | "about" | "contact" | "search" | "wishlist" | "account" | "cart";
+type Page = "home" | "collection" | "product" | "lookbook" | "about" | "contact" | "search" | "wishlist" | "account" | "cart" | "admin";
 
 type CartItem = {
   product: Product;
@@ -95,17 +103,92 @@ const fadeUp: Variants = {
 };
 
 export default function App() {
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>(staticProducts);
   const [introVisible, setIntroVisible] = useState(true);
   const [page, setPage] = useState<Page>("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [curatorProduct, setCuratorProduct] = useState<Product | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product>(getPrimaryProduct(products));
+  const [selectedProduct, setSelectedProduct] = useState<Product>(getPrimaryProduct(staticProducts));
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [activeSubCategory, setActiveSubCategory] = useState<string>("All");
-  const [wishlist, setWishlist] = useState<string[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("mm_wishlist");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("mm_cart");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // URL / History Routing for /admin & Secret Shortcut (Ctrl+Shift+A)
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path === "/admin" || hash === "#admin") {
+        setPage("admin");
+      }
+    };
+    handlePopState();
+    window.addEventListener("popstate", handlePopState);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "A" || e.key === "a")) {
+        e.preventDefault();
+        setPage("admin");
+        window.history.pushState(null, "", "/admin");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  // Save cart changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("mm_cart", JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
+
+  // Load dynamic catalog from Supabase / Mock adapter
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDynamicCatalog() {
+      try {
+        const [dbProds, dbCats, dbCols] = await Promise.all([
+          api.getProducts(),
+          api.getCategories(),
+          api.getCollections(),
+        ]);
+        if (isMounted && dbProds && dbProds.length > 0) {
+          const mapped = dbProds.map((db) => mapDbProductToCatalogProduct(db, dbCats, dbCols));
+          setCatalogProducts(mapped);
+          setSelectedProduct((prev) => mapped.find((m) => m.id === prev.id) || mapped[0] || prev);
+        }
+      } catch (err) {
+        console.warn("Dynamic catalog fetch fallback to static catalog:", err);
+      }
+    }
+    loadDynamicCatalog();
+    return () => {
+      isMounted = false;
+    };
+  }, [page]);
 
   const go = (next: Page, product?: Product, category?: string, subCategory?: string) => {
     if (product) setSelectedProduct(product);
@@ -113,6 +196,11 @@ export default function App() {
     if (subCategory !== undefined) setActiveSubCategory(subCategory);
     setPage(next);
     setMenuOpen(false);
+    if (next === "admin") {
+      window.history.pushState(null, "", "/admin");
+    } else if (window.location.pathname === "/admin") {
+      window.history.pushState(null, "", "/");
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -122,9 +210,13 @@ export default function App() {
   }, [page, introVisible]);
 
   const toggleWishlist = (product: Product) => {
-    setWishlist((items) =>
-      items.includes(product.id) ? items.filter((id) => id !== product.id) : [...items, product.id]
-    );
+    setWishlist((items) => {
+      const next = items.includes(product.id) ? items.filter((id) => id !== product.id) : [...items, product.id];
+      try {
+        localStorage.setItem("mm_wishlist", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const addToCart = (product: Product, size = product.sizes[0] || "M") => {
@@ -139,7 +231,12 @@ export default function App() {
   };
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
-  const wishedProducts = products.filter((product) => wishlist.includes(product.id));
+  const wishedProducts = catalogProducts.filter((product) => wishlist.includes(product.id));
+
+  // If viewing admin panel, render dedicated admin portal
+  if (page === "admin") {
+    return <AdminPanel onBackToStore={() => go("home")} />;
+  }
 
   const PageComponent = {
     home: (
@@ -151,6 +248,7 @@ export default function App() {
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
+        products={catalogProducts}
       />
     ),
     collection: (
@@ -162,6 +260,7 @@ export default function App() {
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
         initialCategory={activeCategory}
         initialSubCategory={activeSubCategory}
+        products={catalogProducts}
       />
     ),
     product: (
@@ -172,6 +271,7 @@ export default function App() {
         toggleWishlist={toggleWishlist}
         addToCart={addToCart}
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
+        products={catalogProducts}
       />
     ),
     lookbook: (
@@ -184,7 +284,7 @@ export default function App() {
     ),
     about: <AboutPage go={go} />,
     contact: <ContactPage />,
-    search: <SearchPage go={go} />,
+    search: <SearchPage go={go} products={catalogProducts} />,
     wishlist: (
       <WishlistPage
         products={wishedProducts}
@@ -194,8 +294,9 @@ export default function App() {
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
       />
     ),
-    account: <AccountPage />,
-    cart: <CartPage cart={cart} setCart={setCart} go={go} />,
+    account: <AccountPage go={go} />,
+    cart: <CartPage cart={cart} setCart={setCart} go={go} onCheckout={() => setCheckoutOpen(true)} />,
+    admin: <AdminPanel onBackToStore={() => go("home")} />,
   }[page];
 
   return (
@@ -231,8 +332,8 @@ export default function App() {
 
       <Footer go={go} />
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} go={go} />
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} go={go} />
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} go={go} />
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} go={go} products={catalogProducts} />
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} go={go} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />
 
       {/* Curator Quick-View Specimen Modal */}
       <CuratorModal
@@ -241,6 +342,17 @@ export default function App() {
         onAddToCart={addToCart}
         isWishlisted={curatorProduct ? wishlist.includes(curatorProduct.id) : false}
         onToggleWishlist={toggleWishlist}
+      />
+
+      {/* Cashless Direct Atelier Order Placement Modal (Without Payment Gateway) */}
+      <CheckoutModal
+        open={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        cart={cart}
+        onOrderSuccess={() => {
+          setCart([]);
+          setCheckoutOpen(false);
+        }}
       />
 
       {/* Resn-Style Avant-Garde Brand Entrance Preloader */}
@@ -302,9 +414,11 @@ function Navigation({
 
           <button
             onClick={() => go("home")}
-            className="flex flex-col items-center group text-center min-w-0"
+            className="flex items-center gap-2 sm:gap-3 group text-center min-w-0"
+            aria-label="Maison Makeeva Home"
           >
-            <span className="font-display text-sm sm:text-2xl uppercase font-bold tracking-[0.08em] sm:tracking-[0.18em] transition-transform group-hover:scale-105 text-white truncate">
+            <MaisonMakeevaLogo className="h-5 sm:h-7 w-auto text-white group-hover:text-chartreuse transition-colors shrink-0" />
+            <span className="font-display text-sm sm:text-2xl uppercase font-bold tracking-[0.08em] sm:tracking-[0.18em] transition-transform group-hover:scale-[1.02] text-white truncate">
               Maison Makeeva
             </span>
           </button>
@@ -513,6 +627,7 @@ function HomePage({
   toggleWishlist,
   addToCart,
   onCuratorInspect,
+  products = staticProducts,
 }: {
   go: (page: Page, product?: Product, category?: string) => void;
   wishlist: string[];
@@ -521,6 +636,7 @@ function HomePage({
   onCuratorInspect: (product: Product) => void;
   activeCategory?: string;
   setActiveCategory?: (cat: string) => void;
+  products?: Product[];
 }) {
   return (
     <>
@@ -772,6 +888,7 @@ function CollectionPage({
   onCuratorInspect,
   initialCategory,
   initialSubCategory,
+  products = staticProducts,
 }: {
   go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
   wishlist: string[];
@@ -780,6 +897,7 @@ function CollectionPage({
   onCuratorInspect: (product: Product) => void;
   initialCategory?: string;
   initialSubCategory?: string;
+  products?: Product[];
 }) {
   const [mainCategory, setMainCategory] = useState(initialCategory || "All");
   const [subCategory, setSubCategory] = useState(initialSubCategory || "All");
@@ -826,7 +944,7 @@ function CollectionPage({
       }
     });
     return c;
-  }, []);
+  }, [products]);
 
   const filtered = useMemo(() => {
     let list = [...products];
@@ -866,7 +984,7 @@ function CollectionPage({
     if (sort === "Price, high to low") return list.sort((a, b) => b.price - a.price);
     if (sort === "Alphabetically, A-Z") return list.sort((a, b) => a.title.localeCompare(b.title));
     return list;
-  }, [mainCategory, subCategory, sort]);
+  }, [mainCategory, subCategory, sort, products]);
 
   const activeSubcategories = navGroups[mainCategory] || [];
   const currentArchiveSection = mainCategory === "Archives" && subCategory && archiveSections[subCategory] ? archiveSections[subCategory] : null;
@@ -1084,6 +1202,7 @@ function ProductPage({
   toggleWishlist,
   addToCart,
   onCuratorInspect,
+  products = staticProducts,
 }: {
   product: Product;
   go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
@@ -1091,6 +1210,7 @@ function ProductPage({
   toggleWishlist: (product: Product) => void;
   addToCart: (product: Product, size?: string) => void;
   onCuratorInspect: (product: Product) => void;
+  products?: Product[];
 }) {
   const [size, setSize] = useState(product.sizes[0] || "M");
   const [activeImage, setActiveImage] = useState(0);
@@ -1715,12 +1835,26 @@ function AboutPage({ go }: { go: (page: Page) => void }) {
 
 function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", code: "", message: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name && !formData.email) return;
-    setSubmitted(true);
+    setSending(true);
+    try {
+      await api.createContactMessage({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.code,
+        message: formData.message,
+      });
+    } catch (err) {
+      console.warn("Contact dispatch fallback:", err);
+    } finally {
+      setSending(false);
+      setSubmitted(true);
+    }
   };
 
   return (
@@ -1896,9 +2030,15 @@ function ContactPage() {
   );
 }
 
-function SearchPage({ go }: { go: (page: Page, product?: Product, category?: string, subCategory?: string) => void }) {
+function SearchPage({
+  go,
+  products = staticProducts,
+}: {
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
+  products?: Product[];
+}) {
   const [query, setQuery] = useState("");
-  const results = products.filter((product) => {
+  const results = products.filter((product: Product) => {
     const main = Array.isArray(product.mainCategory) ? product.mainCategory.join(" ") : (product.mainCategory || "");
     const sub = product.subCategory || "";
     return `${product.title} ${product.category} ${main} ${sub} ${product.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase());
@@ -1969,32 +2109,217 @@ function WishlistPage({
   );
 }
 
-function AccountPage() {
+function AccountPage({ go }: { go: (page: Page) => void }) {
+  const { user, isAdmin, login, signUp, logout, quickDemoLogin } = useAuth();
+  const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [myOrders, setMyOrders] = useState<DbOrder[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      api.getOrders().then((all) => {
+        const mine = all.filter(
+          (o) => o.customer_id === user.id || o.customer_email.toLowerCase() === user.email.toLowerCase()
+        );
+        setMyOrders(mine);
+      });
+    }
+  }, [user]);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setLoading(true);
+    if (isRegister) {
+      const res = await signUp(email, password, fullName);
+      if (!res.success) setErrorMsg(res.error || "Registration failed");
+    } else {
+      const res = await login(email, password);
+      if (!res.success) setErrorMsg(res.error || "Login failed");
+    }
+    setLoading(false);
+  };
+
   return (
     <PageShell eyebrow="Client Portal" title="Maison Makeeva Account">
-      <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
-        <form className="bg-ivory p-4 sm:p-10 border border-ink/15 shadow-sm">
-          <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Sign In</p>
-          <input placeholder="Email" className="mt-6 sm:mt-8 w-full border-b border-ink/30 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none" />
-          <input placeholder="Password" type="password" className="mt-4 w-full border-b border-ink/30 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none" />
-          <button className="mt-6 sm:mt-8 w-full bg-ink px-6 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-graphite min-h-[44px]">
-            Access Client Profile
-          </button>
-        </form>
-        <div className="bg-parchment p-4 sm:p-10 border border-ink/15 shadow-sm">
-          <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Atelier Membership</p>
-          <h2 className="mt-4 sm:mt-5 font-display text-xl sm:text-3xl uppercase leading-tight">
-            Create a Maison Makeeva client archive.
-          </h2>
-          <div className="mt-6 sm:mt-8 grid gap-3 font-mono text-xs">
-            {["Historical Order Tracking", "Saved Fitting Proportions", "VIP Private Atelier Access", "Archival Drops Invitation"].map((item) => (
-              <p key={item} className="flex items-center gap-3 text-ink">
-                <Check size={16} className="text-ink shrink-0" /> {item}
-              </p>
-            ))}
+      {user ? (
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
+          {/* Client Profile Box */}
+          <div className="bg-ivory p-6 sm:p-10 border border-ink/15 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-ink/10 pb-4">
+              <div>
+                <span className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Active Dossier</span>
+                <h3 className="font-display text-2xl uppercase font-bold text-ink mt-1">
+                  {user.full_name || user.email}
+                </h3>
+              </div>
+              <span className="bg-chartreuse text-ink font-mono text-xs px-2.5 py-1 uppercase font-bold">
+                {user.role}
+              </span>
+            </div>
+
+            <div className="font-mono text-xs space-y-2 text-graphite">
+              <p><span className="text-taupe uppercase">Email:</span> {user.email}</p>
+              <p><span className="text-taupe uppercase">Membership Status:</span> Active Atelier Member</p>
+            </div>
+
+            {isAdmin && (
+              <div className="p-4 bg-ink text-ivory border border-chartreuse/40 space-y-3">
+                <div className="flex items-center gap-2 text-chartreuse font-mono text-xs font-bold uppercase tracking-wider">
+                  <ShieldCheck size={16} />
+                  <span>Administrative Clearance Granted</span>
+                </div>
+                <p className="font-mono text-xs text-ivory/70">
+                  You possess authorized access to the Maison Makeeva administrative dashboard.
+                </p>
+                <button
+                  onClick={() => go("admin")}
+                  className="w-full bg-chartreuse text-ink font-mono text-xs font-bold uppercase py-2.5 tracking-wider hover:bg-white transition"
+                >
+                  Enter Atelier Administration Portal (/admin) →
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={logout}
+              className="w-full border border-ink/20 py-3 font-mono text-xs uppercase tracking-wider hover:bg-ink hover:text-ivory transition"
+            >
+              Sign Out of Client Archive
+            </button>
+          </div>
+
+          {/* Historical Order Tracking */}
+          <div className="bg-parchment p-6 sm:p-10 border border-ink/15 shadow-sm space-y-5">
+            <div>
+              <span className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Order Tracking</span>
+              <h3 className="font-display text-xl uppercase font-bold text-ink mt-1">
+                Your Atelier Orders ({myOrders.length})
+              </h3>
+            </div>
+
+            {myOrders.length === 0 ? (
+              <div className="p-6 border border-ink/10 bg-ivory text-center font-mono text-xs text-taupe">
+                No orders registered under this client email yet.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                {myOrders.map((ord) => (
+                  <div key={ord.id} className="border border-ink/15 bg-ivory p-3.5 font-mono text-xs flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-ink">{ord.order_number}</p>
+                      <p className="text-[10px] text-taupe">{new Date(ord.created_at).toLocaleDateString()} · {ord.items?.length || 0} Silhouette(s)</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-chartreuse">{formatMoney(ord.total)}</p>
+                      <span className="text-[9px] uppercase px-1.5 py-0.2 border border-ink/20 font-semibold">
+                        {ord.order_status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
+          <form onSubmit={handleAuth} className="bg-ivory p-4 sm:p-10 border border-ink/15 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-ink/10 pb-3">
+              <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe font-semibold">
+                {isRegister ? "Client Registration" : "Sign In"}
+              </p>
+              <button
+                type="button"
+                onClick={() => { setIsRegister(!isRegister); setErrorMsg(null); }}
+                className="font-mono text-xs text-chartreuse hover:underline uppercase"
+              >
+                {isRegister ? "Already registered? Sign In" : "New Client? Register"}
+              </button>
+            </div>
+
+            {errorMsg && (
+              <p className="p-2 border border-red-500/30 bg-red-50 text-red-600 font-mono text-xs">
+                {errorMsg}
+              </p>
+            )}
+
+            {isRegister && (
+              <input
+                required
+                placeholder="Full Name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full border-b border-ink/30 bg-transparent py-3 font-mono text-xs outline-none focus:border-ink"
+              />
+            )}
+
+            <input
+              required
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border-b border-ink/30 bg-transparent py-3 font-mono text-xs outline-none focus:border-ink"
+            />
+            <input
+              required
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border-b border-ink/30 bg-transparent py-3 font-mono text-xs outline-none focus:border-ink"
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-ink px-6 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-graphite min-h-[44px] font-semibold"
+            >
+              {loading ? "Processing..." : isRegister ? "Create Client Archive" : "Access Client Profile"}
+            </button>
+
+            {/* Sandbox Quick Access */}
+            <div className="pt-4 border-t border-ink/10 space-y-2">
+              <p className="font-mono text-[10px] uppercase text-taupe text-center">Development Sandbox Shortcuts</p>
+              <div className="grid grid-cols-2 gap-2 font-mono text-xs">
+                <button
+                  type="button"
+                  onClick={() => quickDemoLogin("customer")}
+                  className="border border-ink/20 py-2 text-ink hover:border-chartreuse text-[11px] uppercase"
+                >
+                  Demo Client
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quickDemoLogin("admin")}
+                  className="border border-chartreuse bg-chartreuse/10 text-ink hover:bg-chartreuse py-2 text-[11px] uppercase font-bold"
+                >
+                  Demo Admin
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div className="bg-parchment p-4 sm:p-10 border border-ink/15 shadow-sm">
+            <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe font-semibold">Atelier Membership</p>
+            <h2 className="mt-4 sm:mt-5 font-display text-xl sm:text-3xl uppercase leading-tight">
+              Create a Maison Makeeva client archive.
+            </h2>
+            <div className="mt-6 sm:mt-8 grid gap-3 font-mono text-xs">
+              {["Historical Order Tracking", "Saved Fitting Proportions", "VIP Private Atelier Access", "Archival Drops Invitation"].map((item) => (
+                <p key={item} className="flex items-center gap-3 text-ink">
+                  <Check size={16} className="text-ink shrink-0" /> {item}
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </PageShell>
   );
 }
@@ -2003,14 +2328,16 @@ function CartPage({
   cart,
   setCart,
   go,
+  onCheckout,
 }: {
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   go: (page: Page, product?: Product) => void;
+  onCheckout?: () => void;
 }) {
   return (
     <PageShell eyebrow="Current Bag" title="Your Curated Pieces">
-      <CartContent cart={cart} setCart={setCart} go={go} />
+      <CartContent cart={cart} setCart={setCart} go={go} onCheckout={onCheckout} />
     </PageShell>
   );
 }
@@ -2020,11 +2347,13 @@ function CartContent({
   setCart,
   go,
   compact = false,
+  onCheckout,
 }: {
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   go: (page: Page, product?: Product) => void;
   compact?: boolean;
+  onCheckout?: () => void;
 }) {
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
 
@@ -2074,11 +2403,14 @@ function CartContent({
             <span className="font-semibold text-sm">{formatMoney(subtotal)}</span>
           </div>
         </div>
-        <button className="mt-6 sm:mt-8 w-full bg-chartreuse px-4 sm:px-6 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-wideLuxury text-ink font-bold transition hover:bg-white hover:text-ink shadow-sm min-h-[44px]">
-          Proceed with Shopify Checkout
+        <button
+          onClick={onCheckout}
+          className="mt-6 sm:mt-8 w-full bg-chartreuse px-4 sm:px-6 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-wideLuxury text-ink font-bold transition hover:bg-white hover:text-ink shadow-sm min-h-[44px]"
+        >
+          Proceed to Atelier Order Placement
         </button>
         <p className="mt-3 sm:mt-4 font-mono text-xs leading-relaxed text-taupe">
-          Shopify Payments, tax calculations, and customs clearance are integrated directly for seamless checkout.
+          Direct atelier order registration. Invoicing or bespoke collection details are confirmed directly without online payment processing.
         </p>
       </aside>
     </div>
@@ -2087,15 +2419,16 @@ function CartContent({
 
 function Newsletter({ go }: { go?: (page: Page) => void }) {
   const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
-    setSubscribed(true);
+    const res = await api.subscribeNewsletter(email);
+    setStatusMsg(res.message);
     setTimeout(() => {
       setEmail("");
-      setSubscribed(false);
+      setStatusMsg(null);
     }, 4000);
   };
 
@@ -2114,10 +2447,10 @@ function Newsletter({ go }: { go?: (page: Page) => void }) {
           </p>
         </div>
         <div>
-          {subscribed ? (
+          {statusMsg ? (
             <div className="flex items-center gap-3 border-b-2 border-chartreuse py-3 sm:py-4 text-chartreuse font-mono text-xs uppercase tracking-wider">
               <Check size={16} />
-              <span>Registered for Maison Makeeva private dispatches.</span>
+              <span>{statusMsg}</span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex border-b-2 border-ink focus-within:border-chartreuse transition">
@@ -2148,7 +2481,10 @@ function Footer({ go }: { go: (page: Page) => void }) {
     <footer className="relative z-10 bg-ink px-4 py-12 text-ivory sm:px-10 sm:py-16 border-t border-ivory/15">
       <div className="grid gap-8 sm:gap-12 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr]">
         <div>
-          <p className="font-display text-xl sm:text-2xl uppercase tracking-[0.16em]">Maison Makeeva</p>
+          <div className="flex items-center gap-3 mb-3">
+            <MaisonMakeevaLogo className="h-7 sm:h-8 w-auto text-chartreuse shrink-0" />
+            <p className="font-display text-xl sm:text-2xl uppercase tracking-[0.16em]">Maison Makeeva</p>
+          </div>
           <p className="mt-3 sm:mt-4 max-w-md font-editorial text-sm sm:text-base leading-relaxed text-ivory/85">
             Ready-to-wear luxury fashion house exploring cultural identity, heavy fabrics, and sculptural street-couture silhouettes.
           </p>
@@ -2309,10 +2645,8 @@ function MobileMenu({
         >
           <div>
             <div className="flex items-center justify-between border-b border-ivory/15 pb-4 sm:pb-6">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 items-center justify-center border border-chartreuse font-mono text-xs font-bold text-chartreuse">
-                  MM
-                </span>
+              <div className="flex items-center gap-3">
+                <MaisonMakeevaLogo className="h-7 w-auto text-chartreuse shrink-0" />
                 <p className="font-display text-base sm:text-lg uppercase tracking-[0.16em]">Maison Makeeva</p>
               </div>
               <button
@@ -2461,9 +2795,19 @@ function MobileMenu({
   );
 }
 
-function SearchOverlay({ open, onClose, go }: { open: boolean; onClose: () => void; go: (page: Page, product?: Product, category?: string, subCategory?: string) => void }) {
+function SearchOverlay({
+  open,
+  onClose,
+  go,
+  products = staticProducts,
+}: {
+  open: boolean;
+  onClose: () => void;
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
+  products?: Product[];
+}) {
   const [query, setQuery] = useState("");
-  const results = products.filter((product) => {
+  const results = products.filter((product: Product) => {
     const main = Array.isArray(product.mainCategory) ? product.mainCategory.join(" ") : (product.mainCategory || "");
     const sub = product.subCategory || "";
     return `${product.title} ${product.category} ${main} ${sub} ${product.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase());
@@ -2537,12 +2881,14 @@ function CartDrawer({
   cart,
   setCart,
   go,
+  onCheckout,
 }: {
   open: boolean;
   onClose: () => void;
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
-  go: (page: Page, product?: Product) => void;
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
+  onCheckout?: () => void;
 }) {
   return (
     <AnimatePresence>
@@ -2579,6 +2925,7 @@ function CartDrawer({
               compact
               cart={cart}
               setCart={setCart}
+              onCheckout={onCheckout}
               go={(page, product) => {
                 onClose();
                 go(page, product);

@@ -7,10 +7,14 @@ import {
   ChevronRight,
   Columns,
   Eye,
+  Globe,
   Heart,
   LayoutGrid,
+  Mail,
+  MapPin,
   Menu,
   Minus,
+  Phone,
   Plus,
   Search,
   ShoppingBag,
@@ -28,7 +32,7 @@ import { ResnBrandIntro } from "./components/ResnBrandIntro";
 import { RunwayLookbook } from "./components/RunwayLookbook";
 import { ScrollReveal, ScrollDriven3D, refreshScrollTriggers } from "./components/ScrollAnimations";
 import { SignatureHero } from "./components/SignatureHero";
-import { collections, policies, products, type Collection, type Product } from "./data/catalog";
+import { collections, policies, products, categoryStructure, navGroups, archiveSections, type ArchiveSection, type Collection, type Product } from "./data/catalog";
 import { cx, formatMoney, getPrimaryProduct } from "./utils";
 
 type Page = "home" | "collection" | "product" | "lookbook" | "about" | "contact" | "search" | "wishlist" | "account" | "cart";
@@ -42,81 +46,46 @@ type CartItem = {
 const pageLinks: Array<{ page: Page; label: string }> = [
   { page: "home", label: "Home" },
   { page: "collection", label: "Collections" },
-  { page: "lookbook", label: "Lookbook" },
+  { page: "lookbook", label: "Archives & Lookbook" },
   { page: "about", label: "About" },
   { page: "contact", label: "Contact" },
 ];
 
-type MenuColumn = {
-  title: string;
-  items: string[];
-};
-
 type ShopMenu = {
   label: string;
   page: Page;
-  columns: MenuColumn[];
-  hero?: string;
+  hero: string;
 };
 
 const shopifyMenus: ShopMenu[] = [
   {
-    label: "SS26 Monograph",
+    label: "New Arrivals",
     page: "collection",
-    hero: "Spring Summer SS26 Presentation",
-    columns: [
-      { title: "Silhouettes", items: ["All SS26 Works", "Bovinille 101 Set", "Orion202 Denim", "Ntoube 302 Velvet"] },
-      { title: "Key Pieces", items: ["Monogram Jumpsuit", "R-F-A Jersey", "Esande Tee", "Agendia Duffle"] },
-    ],
+    hero: "Spring Summer SS26 Monograph Drop",
+  },
+  {
+    label: "Women",
+    page: "collection",
+    hero: "Sculptural Draping & Tailored Feminine Silhouettes",
+  },
+  {
+    label: "Men",
+    page: "collection",
+    hero: "Heavy Cotton Cuts & Architectural Menswear",
   },
   {
     label: "Sets & Tracksuits",
     page: "collection",
-    hero: "Architectural two-piece uniforms",
-    columns: [
-      { title: "Fabrics", items: ["300 GSM Heavy Cotton", "Stonewashed Denim", "Velvet Contour", "Sports Fabric"] },
-      { title: "Edits", items: ["Bleached Monolith", "Archival Sets", "Unisex Cuts", "Runway Uniforms"] },
-    ],
+    hero: "Architectural Two-Piece Co-ord Uniforms",
   },
   {
-    label: "Jerseys & Tops",
-    page: "collection",
-    hero: "Graphic street-luxury silhouettes",
-    columns: [
-      { title: "Styles", items: ["R-F-A Sports Jersey", "Roar-With-Fierce Set", "Esande Gallery Tee", "Wakamania Reality"] },
-      { title: "Details", items: ["Sublimated Graphics", "Ribbed Collars", "Oversized Drape", "Breathable Mesh"] },
-    ],
-  },
-  {
-    label: "Denim & Outerwear",
-    page: "collection",
-    hero: "Stonewashed artisanal pieces",
-    columns: [
-      { title: "Denim Studio", items: ["Orion202 Denim Set", "Bleached Indigo", "Workwear Contour", "DTS Pattern Print"] },
-      { title: "Craft", items: ["Artisanal Wash", "Custom Mill Weave", "Heavyweight Density", "Double Topstitch"] },
-    ],
-  },
-  {
-    label: "Bags & Carryalls",
-    page: "collection",
-    hero: "Campaign travel silhouettes",
-    columns: [
-      { title: "Collection", items: ["Agendia 007 Duffle", "Structured Shell", "Detachable Hardware", "Atelier Travel"] },
-      { title: "Finishes", items: ["Noir Matte", "Engineered Straps", "Dust Protective Bags", "Courier Ready"] },
-    ],
-  },
-  {
-    label: "Lookbook",
+    label: "Archives",
     page: "lookbook",
-    hero: "Maison Makeeva runway monograph",
-    columns: [
-      { title: "Campaign Studies", items: ["SS26 Paris Presentation", "SS24 Archive", "Athleisure Campaign", "Runway Looks"] },
-      { title: "House Heritage", items: ["Cultural Artistry", "Atelier Paris", "Studio Accra", "Curator Monograph"] },
-    ],
+    hero: "House Retrospective & Creative Monograph",
   },
 ];
 
-const shopifyMenuMap = Object.fromEntries(shopifyMenus.map((menu) => [menu.label, menu])) as Record<ShopMenu["label"], ShopMenu>;
+const shopifyMenuMap = Object.fromEntries(shopifyMenus.map((menu) => [menu.label, menu])) as Record<string, ShopMenu>;
 
 const easeOutExpo = [0.16, 1, 0.3, 1] as const;
 
@@ -134,12 +103,14 @@ export default function App() {
   const [curatorProduct, setCuratorProduct] = useState<Product | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product>(getPrimaryProduct(products));
   const [activeCategory, setActiveCategory] = useState<string>("All");
+  const [activeSubCategory, setActiveSubCategory] = useState<string>("All");
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  const go = (next: Page, product?: Product, category?: string) => {
+  const go = (next: Page, product?: Product, category?: string, subCategory?: string) => {
     if (product) setSelectedProduct(product);
-    if (category) setActiveCategory(category);
+    if (category !== undefined) setActiveCategory(category);
+    if (subCategory !== undefined) setActiveSubCategory(subCategory);
     setPage(next);
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -190,6 +161,7 @@ export default function App() {
         addToCart={addToCart}
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
         initialCategory={activeCategory}
+        initialSubCategory={activeSubCategory}
       />
     ),
     product: (
@@ -207,6 +179,7 @@ export default function App() {
         go={go}
         addToCart={addToCart}
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
+        activeSection={activeSubCategory}
       />
     ),
     about: <AboutPage go={go} />,
@@ -288,7 +261,7 @@ function Navigation({
   onCart,
 }: {
   page: Page;
-  go: (page: Page, product?: Product, category?: string) => void;
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
   cartCount: number;
   wishlistCount: number;
   onMenu: () => void;
@@ -309,7 +282,7 @@ function Navigation({
 
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <button
-              onClick={() => go("collection")}
+              onClick={() => go("collection", undefined, "New Arrivals", "All")}
               className="font-mono text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] text-chartreuse hover:underline font-semibold"
             >
               Exhibition Catalog →
@@ -336,14 +309,16 @@ function Navigation({
             </span>
           </button>
 
-          <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
-            <IconButton label="Account" onClick={() => go("account")}>
-              <User size={18} />
-            </IconButton>
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div className="hidden lg:flex items-center gap-1 sm:gap-2">
+              <IconButton label="Account" onClick={() => go("account")}>
+                <User size={18} />
+              </IconButton>
 
-            <IconButton label={`Wishlist ${wishlistCount}`} onClick={() => go("wishlist")}>
-              <Heart size={18} fill={wishlistCount > 0 ? "currentColor" : "none"} className={wishlistCount > 0 ? "text-chartreuse fill-chartreuse" : ""} />
-            </IconButton>
+              <IconButton label={`Wishlist ${wishlistCount}`} onClick={() => go("wishlist")}>
+                <Heart size={18} fill={wishlistCount > 0 ? "currentColor" : "none"} className={wishlistCount > 0 ? "text-chartreuse fill-chartreuse" : ""} />
+              </IconButton>
+            </div>
 
             <button
               onClick={onCart}
@@ -367,22 +342,38 @@ function Navigation({
       {/* Desktop Curated Mega-Menu Links */}
       <div className="hidden lg:block border-b border-white/15 bg-black text-white">
         <div className="mx-auto flex h-11 max-w-[1600px] items-center justify-center gap-9 px-4 font-mono text-xs uppercase tracking-[0.22em]">
-          {shopifyMenus.map((menu) => (
-            <button
-              key={menu.label}
-              onMouseEnter={() => setMega(menu.label)}
-              onClick={() => go(menu.page)}
-              className="transition hover:text-chartreuse hover:underline underline-offset-8 text-white/90 font-medium"
-            >
-              {menu.label}
-            </button>
-          ))}
+          {shopifyMenus.map((menu) => {
+            const hasSubs = (navGroups[menu.label]?.length ?? 0) > 0;
+            return (
+              <button
+                key={menu.label}
+                onMouseEnter={() => {
+                  if (hasSubs) {
+                    setMega(menu.label);
+                  } else {
+                    setMega(null);
+                  }
+                }}
+                onClick={() => {
+                  setMega(null);
+                  if (menu.label === "Archives") {
+                    go("lookbook", undefined, "Archives", "Lookbooks");
+                  } else {
+                    go(menu.page, undefined, menu.label, "All");
+                  }
+                }}
+                className="transition hover:text-chartreuse hover:underline underline-offset-8 text-white/90 font-medium"
+              >
+                {menu.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Mega Menu Dropdown */}
       <AnimatePresence>
-        {mega && (
+        {mega && (navGroups[mega]?.length ?? 0) > 0 && (
           <motion.div
             onMouseLeave={() => setMega(null)}
             initial={{ opacity: 0, y: -8 }}
@@ -391,67 +382,74 @@ function Navigation({
             transition={{ duration: 0.2 }}
             className="hidden border-t border-white/20 bg-black px-10 py-10 lg:block shadow-2xl"
           >
-            <div className="mx-auto grid max-w-[1400px] grid-cols-[1fr_1.2fr] gap-12">
+            <div className="mx-auto grid max-w-[1400px] grid-cols-[1.4fr_1fr] gap-12">
               <div>
-                <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-wideLuxury text-chartreuse">
-                  {mega} Collection Study
-                </p>
-                <div className="grid grid-cols-2 gap-x-10 gap-y-3">
-                  {shopifyMenuMap[mega].columns.flatMap((column) => column.items).map((item) => (
+                <div className="flex items-center justify-between mb-5">
+                  <p className="font-mono text-xs font-semibold uppercase tracking-wideLuxury text-chartreuse">
+                    {mega} — Sub Categories ({navGroups[mega].length})
+                  </p>
+                  <button
+                    onClick={() => {
+                      setMega(null);
+                      if (mega === "Archives") {
+                        go("lookbook", undefined, "Archives", "Lookbooks");
+                      } else {
+                        go("collection", undefined, mega, "All");
+                      }
+                    }}
+                    className="font-mono text-xs uppercase tracking-wider text-white/60 hover:text-chartreuse transition flex items-center gap-1"
+                  >
+                    View All {mega} <ArrowRight size={12} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                  {navGroups[mega].map((item) => (
                     <button
                       key={item}
                       onClick={() => {
                         setMega(null);
-                        go("collection", undefined, item.includes("Set") ? "Sets" : item.includes("Jersey") ? "Shirts & T-shirts" : item.includes("Duffle") ? "Bags & Wallets" : "All");
+                        if (mega === "Archives") {
+                          go("lookbook", undefined, "Archives", item);
+                        } else {
+                          go("collection", undefined, mega, item);
+                        }
                       }}
-                      className="text-left font-display text-base text-white/90 transition-colors duration-150 hover:text-chartreuse hover:translate-x-1"
+                      className="group flex items-center justify-between border-b border-white/10 pb-2.5 text-left transition-colors duration-150 hover:border-chartreuse"
                     >
-                      {item}
+                      <span className="font-display text-sm uppercase tracking-wide text-white/90 group-hover:text-chartreuse group-hover:translate-x-1 transition-transform">
+                        {item}
+                      </span>
+                      <ArrowRight size={12} className="text-chartreuse opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8">
-                {shopifyMenuMap[mega].columns.map((column) => (
-                  <div key={column.title}>
-                    <p className="mb-4 font-mono text-xs uppercase tracking-wideLuxury text-white/60 font-medium">
-                      {column.title}
-                    </p>
-                    <div className="space-y-2.5">
-                      {column.items.map((item) => (
-                        <button
-                          key={item}
-                          onClick={() => {
-                            setMega(null);
-                            go("collection");
-                          }}
-                          className="block text-left font-sans text-sm text-white/85 transition-colors duration-150 hover:text-chartreuse"
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-
-                <div className="border border-ivory/20 bg-parchment p-6 text-ink flex flex-col justify-between shadow-xl">
-                  <div>
-                    <span className="font-mono text-xs uppercase tracking-wider text-taupe font-semibold">Atelier Spotlight</span>
-                    <h4 className="mt-2 font-display text-xl uppercase font-bold leading-tight text-ink">{shopifyMenuMap[mega].hero}</h4>
-                    <p className="mt-2 font-sans text-xs text-graphite/90">Crafted with cultural memory and tactile density.</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setMega(null);
-                      go(shopifyMenuMap[mega].page);
-                    }}
-                    className="mt-6 flex items-center justify-between border-t border-ink/20 pt-3 font-mono text-xs uppercase tracking-[0.18em] font-semibold transition hover:text-chartreuse text-ink"
-                  >
-                    <span>Enter Universe</span>
-                    <ArrowRight size={14} />
-                  </button>
+              <div className="border border-ivory/20 bg-parchment p-8 text-ink flex flex-col justify-between shadow-xl">
+                <div>
+                  <span className="font-mono text-xs uppercase tracking-wider text-taupe font-semibold">Atelier Spotlight</span>
+                  <h4 className="mt-2 font-display text-2xl uppercase font-bold leading-tight text-ink">
+                    {shopifyMenuMap[mega]?.hero || mega}
+                  </h4>
+                  <p className="mt-3 font-sans text-xs text-graphite/90 leading-relaxed">
+                    Crafted with cultural memory, architectural drape, and tactile density. Explore our curated {mega.toLowerCase()} catalog.
+                  </p>
                 </div>
+                <button
+                  onClick={() => {
+                    setMega(null);
+                    if (mega === "Archives") {
+                      go("lookbook", undefined, "Archives", "Lookbooks");
+                    } else {
+                      go(shopifyMenuMap[mega]?.page || "collection", undefined, mega, "All");
+                    }
+                  }}
+                  className="mt-6 flex items-center justify-between border-t border-ink/20 pt-3 font-mono text-xs uppercase tracking-[0.18em] font-semibold transition hover:text-chartreuse text-ink"
+                >
+                  <span>Explore {mega}</span>
+                  <ArrowRight size={14} />
+                </button>
               </div>
             </div>
           </motion.div>
@@ -773,48 +771,112 @@ function CollectionPage({
   addToCart,
   onCuratorInspect,
   initialCategory,
+  initialSubCategory,
 }: {
-  go: (page: Page, product?: Product, category?: string) => void;
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
   wishlist: string[];
   toggleWishlist: (product: Product) => void;
   addToCart: (product: Product) => void;
   onCuratorInspect: (product: Product) => void;
   initialCategory?: string;
+  initialSubCategory?: string;
 }) {
-  const [category, setCategory] = useState(initialCategory || "All");
+  const [mainCategory, setMainCategory] = useState(initialCategory || "All");
+  const [subCategory, setSubCategory] = useState(initialSubCategory || "All");
   const [sort, setSort] = useState("Featured");
   const [viewMode, setViewMode] = useState<"atelier" | "grid" | "runway">("atelier");
 
   useEffect(() => {
     if (initialCategory) {
-      setCategory(initialCategory);
+      setMainCategory(initialCategory);
     }
   }, [initialCategory]);
 
-  const categories = ["All", ...Array.from(new Set(products.map((product) => product.category)))];
+  useEffect(() => {
+    if (initialSubCategory) {
+      setSubCategory(initialSubCategory);
+    }
+  }, [initialSubCategory]);
+
+  const mainCategories = ["All", "New Arrivals", "Women", "Men", "Sets & Tracksuits", "Archives"];
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { All: products.length };
+    c["New Arrivals"] = products.filter((p) => p.collection === "ss26" || p.tags.includes("SS26") || p.tags.includes("NEW ARRIVAL")).length;
+    c["Women"] = products.filter((p) => {
+      const isWomen = Array.isArray(p.mainCategory) ? p.mainCategory.includes("Women") : p.mainCategory === "Women";
+      return isWomen || p.tags.includes("Women");
+    }).length;
+    c["Men"] = products.filter((p) => {
+      const isMen = Array.isArray(p.mainCategory) ? p.mainCategory.includes("Men") : p.mainCategory === "Men";
+      return isMen || p.tags.includes("Men") || p.tags.includes("Unisex");
+    }).length;
+    c["Sets & Tracksuits"] = products.filter((p) => {
+      const isSets = Array.isArray(p.mainCategory) ? p.mainCategory.includes("Sets & Tracksuits") : p.mainCategory === "Sets & Tracksuits";
+      return isSets || p.category === "Sets & Tracksuits" || p.tags.includes("Sets & Tracksuits");
+    }).length;
+    c["Archives"] = products.filter((p) => p.collection === "ss24" || p.collection === "athleisure-campaign" || p.tags.includes("Archives")).length;
+
     products.forEach((p) => {
-      c[p.category] = (c[p.category] || 0) + 1;
+      if (p.subCategory) {
+        c[p.subCategory] = (c[p.subCategory] || 0) + 1;
+      }
+      if (p.category && !c[p.category]) {
+        c[p.category] = (c[p.category] || 0) + 1;
+      }
     });
     return c;
   }, []);
 
   const filtered = useMemo(() => {
-    const next = category === "All" ? [...products] : products.filter((product) => product.category === category);
-    if (sort === "Price, low to high") return next.sort((a, b) => a.price - b.price);
-    if (sort === "Price, high to low") return next.sort((a, b) => b.price - a.price);
-    if (sort === "Alphabetically, A-Z") return next.sort((a, b) => a.title.localeCompare(b.title));
-    return next;
-  }, [category, sort]);
+    let list = [...products];
+
+    if (mainCategory === "New Arrivals") {
+      list = list.filter((p) => p.collection === "ss26" || p.tags.includes("SS26") || p.tags.includes("NEW ARRIVAL"));
+    } else if (mainCategory === "Women") {
+      list = list.filter((p) => {
+        const isWomen = Array.isArray(p.mainCategory) ? p.mainCategory.includes("Women") : p.mainCategory === "Women";
+        return isWomen || p.tags.includes("Women");
+      });
+    } else if (mainCategory === "Men") {
+      list = list.filter((p) => {
+        const isMen = Array.isArray(p.mainCategory) ? p.mainCategory.includes("Men") : p.mainCategory === "Men";
+        return isMen || p.tags.includes("Men") || p.tags.includes("Unisex");
+      });
+    } else if (mainCategory === "Sets & Tracksuits") {
+      list = list.filter((p) => {
+        const isSets = Array.isArray(p.mainCategory) ? p.mainCategory.includes("Sets & Tracksuits") : p.mainCategory === "Sets & Tracksuits";
+        return isSets || p.category === "Sets & Tracksuits" || p.tags.includes("Sets & Tracksuits");
+      });
+    } else if (mainCategory === "Archives") {
+      list = list.filter((p) => p.collection === "ss24" || p.collection === "athleisure-campaign" || p.tags.includes("Archives"));
+    }
+
+    if (subCategory && !subCategory.startsWith("All")) {
+      list = list.filter((p) => {
+        return (
+          p.subCategory === subCategory ||
+          p.category === subCategory ||
+          p.tags.includes(subCategory)
+        );
+      });
+    }
+
+    if (sort === "Price, low to high") return list.sort((a, b) => a.price - b.price);
+    if (sort === "Price, high to low") return list.sort((a, b) => b.price - a.price);
+    if (sort === "Alphabetically, A-Z") return list.sort((a, b) => a.title.localeCompare(b.title));
+    return list;
+  }, [mainCategory, subCategory, sort]);
+
+  const activeSubcategories = navGroups[mainCategory] || [];
+  const currentArchiveSection = mainCategory === "Archives" && subCategory && archiveSections[subCategory] ? archiveSections[subCategory] : null;
 
   return (
     <PageShell eyebrow="Exhibition Catalog" title="Spring Summer SS26 Monograph">
       {/* Intro Quote */}
       <div className="collection-intro mb-8 grid gap-5 border-y border-ink/15 py-5 sm:grid-cols-[1fr_auto] sm:items-end bg-parchment/40 px-4">
         <p className="max-w-2xl font-editorial text-lg leading-snug text-graphite/90 sm:text-xl">
-          Pieces made to hold the room. Explore the complete SS26 ready-to-wear archive filtered by textile, silhouette, and proportion.
+          Pieces made to hold the room. Explore the complete ready-to-wear archive filtered by category, silhouette, and proportion.
         </p>
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-chartreuse font-semibold">
           {filtered.length} / {products.length} works catalogued
@@ -822,35 +884,99 @@ function CollectionPage({
       </div>
 
       {/* Filter and View Controls */}
-      <div className="mb-10 grid gap-6 border-b border-ink/15 pb-6 lg:grid-cols-[1fr_auto] items-center">
-        {/* Category Pills: Horizontal swipeable rail on mobile, wrapping on desktop */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0">
-          {categories.map((item) => (
-            <button
-              key={item}
-              onClick={() => setCategory(item)}
-              className={cx(
-                "inline-flex items-center gap-2 border px-3.5 py-2 font-mono text-xs uppercase tracking-wideLuxury transition shrink-0 whitespace-nowrap min-h-[38px]",
-                category === item
-                  ? "border-chartreuse bg-ink text-chartreuse font-bold shadow-sm ring-1 ring-chartreuse"
-                  : "border-ink/20 text-graphite hover:border-chartreuse hover:text-chartreuse bg-white/40"
-              )}
-            >
-              <span>{item}</span>
-              <span
+      <div className="mb-8 border-b border-ink/15 pb-6 space-y-4">
+        {/* Tier 1: Main Category Selector */}
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-wideLuxury text-taupe mb-2 font-semibold">
+            Main Category
+          </p>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0">
+            {mainCategories.map((item) => (
+              <button
+                key={item}
+                onClick={() => {
+                  setMainCategory(item);
+                  setSubCategory("All");
+                }}
                 className={cx(
-                  "rounded-full px-2 py-0.5 text-[11px] font-mono font-semibold",
-                  category === item ? "bg-chartreuse text-ink font-bold" : "bg-ink/10 text-taupe"
+                  "inline-flex items-center gap-2 border px-4 py-2 font-mono text-xs uppercase tracking-wideLuxury transition shrink-0 whitespace-nowrap min-h-[38px]",
+                  mainCategory === item
+                    ? "border-chartreuse bg-ink text-chartreuse font-bold shadow-sm ring-1 ring-chartreuse"
+                    : "border-ink/20 text-graphite hover:border-chartreuse hover:text-chartreuse bg-white/40"
                 )}
               >
-                {counts[item] || 0}
-              </span>
-            </button>
-          ))}
+                <span>{item}</span>
+                <span
+                  className={cx(
+                    "rounded-full px-2 py-0.5 text-[11px] font-mono font-semibold",
+                    mainCategory === item ? "bg-chartreuse text-ink font-bold" : "bg-ink/10 text-taupe"
+                  )}
+                >
+                  {counts[item] !== undefined ? counts[item] : 0}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* Tier 2: Sub Category Selector (if main category has subcategories) */}
+        {activeSubcategories.length > 0 && (
+          <div className="pt-3 border-t border-ink/10">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-mono text-[11px] uppercase tracking-wideLuxury text-taupe font-semibold">
+                {mainCategory} Sub Categories
+              </p>
+              {subCategory !== "All" && (
+                <button
+                  onClick={() => setSubCategory("All")}
+                  className="font-mono text-[11px] text-chartreuse hover:underline uppercase tracking-wider font-semibold"
+                >
+                  Reset Filter
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0">
+              {["All " + mainCategory, ...activeSubcategories].map((item) => {
+                const isSelected = item === "All " + mainCategory ? subCategory === "All" : subCategory === item;
+                const displayCount = item === "All " + mainCategory ? (counts[mainCategory] || 0) : (counts[item] !== undefined ? counts[item] : 0);
+
+                return (
+                  <button
+                    key={item}
+                    onClick={() => {
+                      if (item === "All " + mainCategory) {
+                        setSubCategory("All");
+                      } else {
+                        setSubCategory(item);
+                      }
+                    }}
+                    className={cx(
+                      "inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-xs uppercase tracking-wideLuxury transition shrink-0 whitespace-nowrap min-h-[34px]",
+                      isSelected
+                        ? "border-chartreuse bg-chartreuse text-ink font-bold shadow-sm"
+                        : "border-ink/15 text-graphite hover:border-ink hover:text-ink bg-white/60"
+                    )}
+                  >
+                    <span>{item}</span>
+                    {displayCount > 0 && (
+                      <span
+                        className={cx(
+                          "rounded-full px-1.5 py-0.2 text-[10px] font-mono font-semibold",
+                          isSelected ? "bg-ink text-chartreuse" : "bg-ink/10 text-taupe"
+                        )}
+                      >
+                        {displayCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* View Mode & Sort Dropdown */}
-        <div className="flex items-center justify-between sm:justify-start gap-4 w-full lg:w-auto">
+        <div className="flex items-center justify-between sm:justify-end gap-4 w-full pt-2 border-t border-ink/10">
           <div className="flex items-center gap-1 border border-ink/20 p-1">
             <button
               onClick={() => setViewMode("atelier")}
@@ -885,6 +1011,44 @@ function CollectionPage({
           </label>
         </div>
       </div>
+
+      {/* Archival Record Spotlight Box */}
+      {currentArchiveSection && (
+        <div className="mb-8 border border-ink/20 bg-parchment p-6 sm:p-8 text-ink shadow-md">
+          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <span className="font-mono text-xs uppercase tracking-[0.2em] text-chartreuse bg-ink px-2.5 py-1 font-semibold">
+                Archival Record · {currentArchiveSection.year}
+              </span>
+              <h3 className="mt-3 font-display text-2xl sm:text-3xl uppercase font-bold text-ink">
+                {currentArchiveSection.title}
+              </h3>
+              <p className="mt-1 font-mono text-xs uppercase tracking-wider text-taupe font-medium">
+                {currentArchiveSection.subtitle}
+              </p>
+              <p className="mt-3 max-w-2xl font-editorial text-base sm:text-lg text-graphite/90 leading-relaxed italic">
+                "{currentArchiveSection.quote}"
+              </p>
+              <p className="mt-3 max-w-2xl font-sans text-sm text-graphite leading-relaxed">
+                {currentArchiveSection.description}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {currentArchiveSection.highlights.map((h) => (
+                  <span key={h} className="border border-ink/20 bg-white/60 px-2.5 py-1 font-mono text-xs text-graphite font-medium">
+                    {h}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => go("lookbook", undefined, "Archives", currentArchiveSection.title)}
+              className="bg-ink px-6 py-3 font-mono text-xs uppercase tracking-[0.2em] text-ivory hover:bg-graphite transition shrink-0 self-start lg:self-center"
+            >
+              Open Full Monograph →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Catalog Render */}
       <div
@@ -922,7 +1086,7 @@ function ProductPage({
   onCuratorInspect,
 }: {
   product: Product;
-  go: (page: Page, product?: Product, category?: string) => void;
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
   wishlist: string[];
   toggleWishlist: (product: Product) => void;
   addToCart: (product: Product, size?: string) => void;
@@ -1057,11 +1221,34 @@ function ProductPage({
         {/* Specimen Details Right */}
         <aside className="product-detail-info sticky top-20 h-fit px-4 py-8 sm:px-10 lg:px-14 bg-bone border-l border-ink/10 pb-36 md:pb-10">
           {/* Breadcrumb Navigation */}
-          <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-taupe font-medium">
+          <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-taupe font-medium flex-wrap">
             <button onClick={() => go("home")} className="hover:text-ink transition">Maison Makeeva</button>
             <span>/</span>
-            <button onClick={() => go("collection", undefined, product.category)} className="hover:text-ink transition">{product.category}</button>
-            <span>/</span>
+            {product.mainCategory && (
+              <>
+                <button
+                  onClick={() => go("collection", undefined, Array.isArray(product.mainCategory) ? product.mainCategory[0] : product.mainCategory, "All")}
+                  className="hover:text-ink transition"
+                >
+                  {Array.isArray(product.mainCategory) ? product.mainCategory[0] : product.mainCategory}
+                </button>
+                <span>/</span>
+              </>
+            )}
+            {product.subCategory && (
+              <>
+                <button
+                  onClick={() => {
+                    const main = Array.isArray(product.mainCategory) ? product.mainCategory[0] : (product.mainCategory || "All");
+                    go("collection", undefined, main, product.subCategory);
+                  }}
+                  className="hover:text-ink transition"
+                >
+                  {product.subCategory}
+                </button>
+                <span>/</span>
+              </>
+            )}
             <span className="text-ink font-semibold truncate max-w-[180px]">{product.title}</span>
           </nav>
 
@@ -1079,7 +1266,7 @@ function ProductPage({
           </div>
 
           <p className="mt-6 font-mono text-xs uppercase tracking-wideLuxury text-taupe font-semibold">
-            {product.category} · {product.collection.toUpperCase()}
+            {Array.isArray(product.mainCategory) ? product.mainCategory.join(" & ") : product.mainCategory}{product.subCategory ? ` · ${product.subCategory}` : ""} · {product.collection.toUpperCase()}
           </p>
 
           <h1 className="mt-2 font-display text-3xl uppercase leading-none sm:text-5xl">
@@ -1251,65 +1438,217 @@ function LookbookPage({
   go,
   addToCart,
   onCuratorInspect,
+  activeSection,
 }: {
-  go: (page: Page, product?: Product) => void;
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
   addToCart: (product: Product) => void;
   onCuratorInspect: (product: Product) => void;
+  activeSection?: string;
 }) {
-  return (
-    <PageShell eyebrow="Campaign Lookbook" title="SS26 Runway Monograph">
-      <RunwayLookbook
-        onSelectProduct={(p) => go("product", p)}
-        onAddToCart={addToCart}
-        onOpenCurator={onCuratorInspect}
-      />
+  const archiveTabs = ["All Archives", "History", "Lookbooks", "Creative Projects", "Diary", "Evolution"];
+  const [currentTab, setCurrentTab] = useState(() => {
+    if (activeSection && archiveTabs.includes(activeSection)) return activeSection;
+    return "All Archives";
+  });
 
-      {/* Campaign Studies Archives */}
-      <div className="mt-12 sm:mt-20 space-y-12 sm:space-y-20 border-t border-ink/15 pt-12 sm:pt-20">
-        {collections.map((collection, index) => (
-          <motion.article
-            key={collection.handle}
-            variants={fadeUp}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true }}
-            className={cx("grid items-center gap-6 sm:gap-10 lg:grid-cols-2", index % 2 === 1 && "lg:[&>*:first-child]:order-2")}
-          >
-            <div className="overflow-hidden border border-ink/15 bg-graphite shadow-xl">
+  useEffect(() => {
+    if (activeSection && archiveTabs.includes(activeSection)) {
+      setCurrentTab(activeSection);
+    }
+  }, [activeSection]);
+
+  const selectedArchive = currentTab !== "All Archives" && currentTab !== "Lookbooks" ? archiveSections[currentTab] : null;
+
+  return (
+    <PageShell eyebrow="House Archives & Lookbook" title="Maison Makeeva Archival Retrospective">
+      {/* Archive Subcategory Tabs */}
+      <div className="mb-10 border-b border-ink/15 pb-4">
+        <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe mb-3 font-semibold">
+          Archives Record Category
+        </p>
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0">
+          {archiveTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setCurrentTab(tab)}
+              className={cx(
+                "inline-flex items-center gap-2 border px-4 py-2 font-mono text-xs uppercase tracking-wideLuxury transition shrink-0 whitespace-nowrap min-h-[38px]",
+                currentTab === tab
+                  ? "border-chartreuse bg-ink text-chartreuse font-bold shadow-sm ring-1 ring-chartreuse"
+                  : "border-ink/20 text-graphite hover:border-chartreuse hover:text-chartreuse bg-white/40"
+              )}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Specific Archive Detail Section */}
+      {selectedArchive && (
+        <motion.div
+          key={selectedArchive.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-16 border border-ink/20 bg-parchment p-6 sm:p-10 shadow-xl"
+        >
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div>
+              <span className="font-mono text-xs uppercase tracking-[0.24em] text-white bg-ink px-3 py-1 font-semibold">
+                Archival Record // {selectedArchive.year}
+              </span>
+              <h2 className="mt-4 font-display text-3xl sm:text-5xl uppercase leading-none">
+                {selectedArchive.title}
+              </h2>
+              <p className="mt-2 font-mono text-xs uppercase tracking-wider text-taupe font-semibold">
+                {selectedArchive.subtitle}
+              </p>
+              <p className="mt-6 font-editorial text-xl sm:text-2xl leading-relaxed text-graphite/90 italic">
+                "{selectedArchive.quote}"
+              </p>
+              <p className="mt-4 font-sans text-base leading-relaxed text-graphite">
+                {selectedArchive.description}
+              </p>
+              <div className="mt-6 space-y-2 border-t border-ink/15 pt-5">
+                <p className="font-mono text-xs uppercase tracking-wider text-taupe font-semibold">Archival Markers:</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedArchive.highlights.map((item) => (
+                    <span key={item} className="border border-ink/20 bg-white/70 px-3 py-1 font-mono text-xs text-graphite font-medium">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <button
+                  onClick={() => go("collection", undefined, "Archives", selectedArchive.title)}
+                  className="bg-ink px-6 py-3.5 font-mono text-xs uppercase tracking-[0.2em] text-ivory hover:bg-graphite transition"
+                >
+                  View Archival Pieces in Catalog
+                </button>
+                <button
+                  onClick={() => setCurrentTab("Lookbooks")}
+                  className="border border-ink px-6 py-3.5 font-mono text-xs uppercase tracking-[0.2em] text-ink hover:bg-ink hover:text-ivory transition"
+                >
+                  Explore Runway Monograph
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-hidden border border-ink/20 bg-graphite shadow-2xl">
               <img
-                src={collection.image}
-                alt={collection.title}
-                className="h-[50vh] sm:h-[75vh] w-full object-cover transition-transform duration-700 hover:scale-105"
+                src={selectedArchive.image}
+                alt={selectedArchive.title}
+                className="h-[45vh] sm:h-[65vh] w-full object-cover transition-transform duration-700 hover:scale-105"
               />
             </div>
-            <div className="pb-4 sm:pb-8">
-              <span className="font-mono text-xs uppercase tracking-[0.24em] text-white bg-ink px-3 py-1 font-semibold">
-                {collection.season}
-              </span>
-              <h2 className="mt-4 sm:mt-5 font-display text-2xl sm:text-4xl lg:text-5xl uppercase leading-none">
-                {collection.title}
-              </h2>
-              <p className="mt-4 sm:mt-6 max-w-xl font-editorial text-lg sm:text-xl md:text-2xl leading-relaxed text-graphite/90 italic">
-                "{collection.description}"
-              </p>
-              <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
-                {collection.categories.map((c) => (
-                  <span key={c} className="border border-ink/20 px-2.5 py-1 font-mono text-xs text-taupe font-medium">
-                    {c}
-                  </span>
-                ))}
-              </div>
-              <button
-                onClick={() => go("collection")}
-                className="mt-6 sm:mt-8 flex items-center gap-3 border-b border-ink pb-1 font-mono text-xs uppercase tracking-[0.2em] font-semibold transition hover:text-taupe"
-              >
-                <span>Shop This Campaign</span>
-                <ArrowRight size={14} />
-              </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Runway Lookbook & Seasonal Collections */}
+      {(currentTab === "All Archives" || currentTab === "Lookbooks") && (
+        <>
+          <div className="mb-6">
+            <h3 className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">
+              01 // Interactive Runway Monograph
+            </h3>
+          </div>
+          <RunwayLookbook
+            onSelectProduct={(p) => go("product", p)}
+            onAddToCart={addToCart}
+            onOpenCurator={onCuratorInspect}
+          />
+
+          {/* Campaign Studies Archives */}
+          <div className="mt-12 sm:mt-20 space-y-12 sm:space-y-20 border-t border-ink/15 pt-12 sm:pt-20">
+            <div className="mb-2">
+              <h3 className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">
+                02 // Seasonal Campaign Studies
+              </h3>
             </div>
-          </motion.article>
-        ))}
-      </div>
+            {collections.map((collection, index) => (
+              <motion.article
+                key={collection.handle}
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                className={cx("grid items-center gap-6 sm:gap-10 lg:grid-cols-2", index % 2 === 1 && "lg:[&>*:first-child]:order-2")}
+              >
+                <div className="overflow-hidden border border-ink/15 bg-graphite shadow-xl">
+                  <img
+                    src={collection.image}
+                    alt={collection.title}
+                    className="h-[50vh] sm:h-[75vh] w-full object-cover transition-transform duration-700 hover:scale-105"
+                  />
+                </div>
+                <div className="pb-4 sm:pb-8">
+                  <span className="font-mono text-xs uppercase tracking-[0.24em] text-white bg-ink px-3 py-1 font-semibold">
+                    {collection.season}
+                  </span>
+                  <h2 className="mt-4 sm:mt-5 font-display text-2xl sm:text-4xl lg:text-5xl uppercase leading-none">
+                    {collection.title}
+                  </h2>
+                  <p className="mt-4 sm:mt-6 max-w-xl font-editorial text-lg sm:text-xl md:text-2xl leading-relaxed text-graphite/90 italic">
+                    "{collection.description}"
+                  </p>
+                  <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
+                    {collection.categories.map((c) => (
+                      <span key={c} className="border border-ink/20 px-2.5 py-1 font-mono text-xs text-taupe font-medium">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => go("collection", undefined, "Archives", "All")}
+                    className="mt-6 sm:mt-8 flex items-center gap-3 border-b border-ink pb-1 font-mono text-xs uppercase tracking-[0.2em] font-semibold transition hover:text-taupe"
+                  >
+                    <span>Shop This Campaign</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+
+          {/* All Archives: Other Archive Records Matrix */}
+          {currentTab === "All Archives" && (
+            <div className="mt-16 sm:mt-24 border-t border-ink/15 pt-12 sm:pt-16">
+              <h3 className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold mb-6">
+                03 // Historical & Atelier Chronicle Records
+              </h3>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                {Object.entries(archiveSections)
+                  .filter(([key]) => key !== "Lookbooks")
+                  .map(([key, item]) => (
+                    <div
+                      key={key}
+                      onClick={() => setCurrentTab(key)}
+                      className="border border-ink/15 bg-parchment/60 p-5 cursor-pointer hover:border-chartreuse transition group flex flex-col justify-between shadow-sm"
+                    >
+                      <div>
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-taupe font-semibold">
+                          {item.year}
+                        </span>
+                        <h4 className="mt-2 font-display text-lg uppercase font-bold group-hover:text-chartreuse transition">
+                          {item.title}
+                        </h4>
+                        <p className="mt-2 font-editorial text-xs text-graphite line-clamp-3">
+                          {item.description}
+                        </p>
+                      </div>
+                      <span className="mt-4 flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-chartreuse font-semibold">
+                        Read Record <ArrowRight size={12} />
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </PageShell>
   );
 }
@@ -1375,59 +1714,202 @@ function AboutPage({ go }: { go: (page: Page) => void }) {
 }
 
 function ContactPage() {
+  const [submitted, setSubmitted] = useState(false);
+  const [formData, setFormData] = useState({ name: "", email: "", code: "", message: "" });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name && !formData.email) return;
+    setSubmitted(true);
+  };
+
   return (
     <PageShell eyebrow="Client Services" title="Maison Makeeva Concierge">
-      <div className="grid gap-6 sm:gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-        <form className="grid gap-4 bg-ivory p-4 sm:p-10 border border-ink/15 shadow-sm">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-taupe font-semibold">Direct Enquiry</p>
-          {["Name", "Email", "Order / Archive Code"].map((field) => (
-            <input
-              key={field}
-              placeholder={field}
-              className="border-b border-ink/30 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none placeholder:text-taupe focus:border-ink"
-            />
-          ))}
-          <textarea
-            placeholder="Enquiry Details"
-            rows={4}
-            className="border-b border-ink/30 bg-transparent py-3 sm:py-4 font-mono text-xs outline-none placeholder:text-taupe focus:border-ink"
-          />
-          <button className="mt-4 bg-ink px-6 py-3.5 sm:py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-graphite min-h-[44px]">
-            Dispatch Enquiry
-          </button>
-        </form>
+      <div className="grid gap-8 sm:gap-12 lg:grid-cols-[1.1fr_0.9fr] items-start">
+        {/* Direct Enquiry Form */}
+        <div className="bg-ivory p-6 sm:p-10 border border-ink/15 shadow-sm">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-taupe font-semibold mb-6">
+            Direct Enquiry
+          </p>
 
-        <div className="space-y-6 sm:space-y-8">
-          <Info
-            title="Customer Support Concierge"
-            lines={["Dedicated 24/7 client care", "maisonmakeeva@gmail.com", "WhatsApp concierge available for fitting advice"]}
-          />
-          <Info
-            title="International Shipping"
-            lines={["Express worldwide tracked courier dispatch", "3-5 business day order processing", "30-day archival exchange guarantee"]}
-          />
-          <Info
-            title="Global Coordinates"
-            lines={["Paris Atelier: 48.8566° N, 2.3522° E", "Accra Studio: 5.6037° N, 0.1870° W"]}
-          />
+          {submitted ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="py-10 text-center space-y-4"
+            >
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-chartreuse text-ink">
+                <Check size={24} className="stroke-[3]" />
+              </div>
+              <h3 className="font-display text-2xl uppercase font-bold text-ink">
+                Enquiry Dispatched
+              </h3>
+              <p className="font-editorial text-base text-graphite max-w-sm mx-auto leading-relaxed">
+                Your message has been dispatched to our Paris atelier. Our client concierge will respond within 24 business hours.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitted(false);
+                  setFormData({ name: "", email: "", code: "", message: "" });
+                }}
+                className="mt-6 inline-block font-mono text-xs uppercase tracking-wider text-taupe hover:text-ink underline underline-offset-4"
+              >
+                Send Another Message
+              </button>
+            </motion.div>
+          ) : (
+            <form onSubmit={handleSubmit} className="grid gap-5">
+              <div>
+                <label className="block font-mono text-[11px] uppercase tracking-wider text-taupe mb-1">
+                  Full Name
+                </label>
+                <input
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter your name"
+                  className="w-full border-b border-ink/30 bg-transparent py-2.5 font-mono text-xs outline-none placeholder:text-taupe/60 focus:border-ink transition"
+                />
+              </div>
+
+              <div>
+                <label className="block font-mono text-[11px] uppercase tracking-wider text-taupe mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="client@domain.com"
+                  className="w-full border-b border-ink/30 bg-transparent py-2.5 font-mono text-xs outline-none placeholder:text-taupe/60 focus:border-ink transition"
+                />
+              </div>
+
+              <div>
+                <label className="block font-mono text-[11px] uppercase tracking-wider text-taupe mb-1">
+                  Order / Archive Code <span className="text-taupe/60">(Optional)</span>
+                </label>
+                <input
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  placeholder="e.g. MM-SS26-09"
+                  className="w-full border-b border-ink/30 bg-transparent py-2.5 font-mono text-xs outline-none placeholder:text-taupe/60 focus:border-ink transition"
+                />
+              </div>
+
+              <div>
+                <label className="block font-mono text-[11px] uppercase tracking-wider text-taupe mb-1">
+                  Enquiry Details
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  placeholder="Inquire regarding bespoke sizing, orders, or appointments..."
+                  className="w-full border-b border-ink/30 bg-transparent py-2.5 font-mono text-xs outline-none placeholder:text-taupe/60 focus:border-ink transition resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="mt-4 bg-ink px-6 py-4 font-mono text-xs uppercase tracking-wideLuxury text-ivory transition hover:bg-chartreuse hover:text-ink font-semibold flex items-center justify-center gap-2"
+              >
+                <span>Dispatch Enquiry</span>
+                <ArrowRight size={14} />
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Contact Details Column */}
+        <div className="space-y-6">
+          {/* Paris Address */}
+          <div className="border border-ink/15 bg-white/70 backdrop-blur-sm p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-wider font-semibold mb-2 text-taupe">
+              <MapPin size={16} className="text-chartreuse" />
+              <span>Address</span>
+            </div>
+            <h3 className="font-display text-2xl uppercase tracking-wide text-ink font-bold">
+              Paris
+            </h3>
+            <p className="mt-2 font-editorial text-lg sm:text-xl text-graphite leading-relaxed">
+              29 rue tronchet 75008 paris France
+            </p>
+          </div>
+
+          {/* Direct Communication */}
+          <div className="border border-ink/15 bg-white/70 backdrop-blur-sm p-6 sm:p-8 shadow-sm space-y-5">
+            <div>
+              <div className="flex items-center gap-2 text-taupe font-mono text-xs uppercase tracking-wider font-semibold mb-1">
+                <Mail size={15} className="text-chartreuse" />
+                <span>Contact Email</span>
+              </div>
+              <a
+                href="mailto:Maisonmakeeva@gmail.com"
+                className="font-mono text-sm sm:text-base text-ink hover:text-chartreuse underline underline-offset-4 transition font-medium"
+              >
+                Maisonmakeeva@gmail.com
+              </a>
+            </div>
+
+            <div className="pt-4 border-t border-ink/10">
+              <div className="flex items-center gap-2 text-taupe font-mono text-xs uppercase tracking-wider font-semibold mb-1">
+                <Phone size={15} className="text-chartreuse" />
+                <span>Telephone</span>
+              </div>
+              <a
+                href="tel:+33758955956"
+                className="font-mono text-sm sm:text-base text-ink hover:text-chartreuse transition font-semibold"
+              >
+                +33 758 95 59 56
+              </a>
+            </div>
+          </div>
+
+          {/* Other Cities */}
+          <div className="border border-ink/15 bg-white/70 backdrop-blur-sm p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center gap-2 text-taupe font-mono text-xs uppercase tracking-wider font-semibold mb-3">
+              <Globe size={15} className="text-chartreuse" />
+              <span>Other Cities</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="border border-ink/10 bg-ivory p-3.5 text-center">
+                <p className="font-display text-sm uppercase font-bold text-ink">Manchester</p>
+                <p className="font-mono text-[11px] uppercase tracking-wider text-taupe mt-0.5">UK</p>
+              </div>
+              <div className="border border-ink/10 bg-ivory p-3.5 text-center">
+                <p className="font-display text-sm uppercase font-bold text-ink">Atlanta</p>
+                <p className="font-mono text-[11px] uppercase tracking-wider text-taupe mt-0.5">USA</p>
+              </div>
+              <div className="border border-ink/10 bg-ivory p-3.5 text-center">
+                <p className="font-display text-sm uppercase font-bold text-ink">Douala</p>
+                <p className="font-mono text-[11px] uppercase tracking-wider text-taupe mt-0.5">Cameroon</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </PageShell>
   );
 }
 
-function SearchPage({ go }: { go: (page: Page, product?: Product) => void }) {
+function SearchPage({ go }: { go: (page: Page, product?: Product, category?: string, subCategory?: string) => void }) {
   const [query, setQuery] = useState("");
-  const results = products.filter((product) =>
-    `${product.title} ${product.category} ${product.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase())
-  );
+  const results = products.filter((product) => {
+    const main = Array.isArray(product.mainCategory) ? product.mainCategory.join(" ") : (product.mainCategory || "");
+    const sub = product.subCategory || "";
+    return `${product.title} ${product.category} ${main} ${sub} ${product.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase());
+  });
   return (
     <PageShell eyebrow="Archive Search" title="Find a silhouette">
       <input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         autoFocus
-        placeholder="Search Sets, Tracksuits, Jerseys, Denim, Bags..."
+        placeholder="Search T-Shirts, Jackets, Hoodies, Sets, Archives..."
         className="w-full border-b-2 border-ink bg-transparent py-4 sm:py-5 font-display text-xl sm:text-4xl outline-none placeholder:text-taupe focus:border-chartreuse transition"
       />
       <div className="mt-8 sm:mt-12 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
@@ -1440,7 +1922,7 @@ function SearchPage({ go }: { go: (page: Page, product?: Product) => void }) {
             <div className="aspect-[3/4] w-full overflow-hidden bg-parchment">
               <img src={product.images[0]} alt={product.title} className="h-full w-full object-cover group-hover:scale-105 transition duration-500" />
             </div>
-            <p className="mt-2 sm:mt-3 font-mono text-xs uppercase tracking-wider text-taupe truncate font-medium">{product.category}</p>
+            <p className="mt-2 sm:mt-3 font-mono text-xs uppercase tracking-wider text-taupe truncate font-medium">{product.subCategory || product.category}</p>
             <p className="mt-1 font-display text-xs sm:text-sm uppercase truncate">{product.title}</p>
             <p className="mt-1 font-mono text-xs font-semibold">{formatMoney(product.price)}</p>
           </button>
@@ -1670,8 +2152,8 @@ function Footer({ go }: { go: (page: Page) => void }) {
           <p className="mt-3 sm:mt-4 max-w-md font-editorial text-sm sm:text-base leading-relaxed text-ivory/85">
             Ready-to-wear luxury fashion house exploring cultural identity, heavy fabrics, and sculptural street-couture silhouettes.
           </p>
-          <div className="mt-4 sm:mt-6 flex gap-3 sm:gap-4 font-mono text-xs uppercase tracking-[0.16em] sm:tracking-[0.18em] text-chartreuse font-semibold">
-            <span>PARIS</span> · <span>ACCRA</span> · <span>WORLDWIDE</span>
+          <div className="mt-4 sm:mt-6 flex flex-wrap gap-3 sm:gap-4 font-mono text-xs uppercase tracking-[0.16em] sm:tracking-[0.18em] text-chartreuse font-semibold">
+            <span>PARIS</span> · <span>MANCHESTER</span> · <span>ATLANTA</span> · <span>DOUALA</span>
           </div>
         </div>
 
@@ -1799,15 +2281,16 @@ function MobileMenu({
 }: {
   open: boolean;
   onClose: () => void;
-  go: (page: Page, product?: Product, category?: string) => void;
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
 }) {
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
   const categoryShortcuts = [
-    { label: "Sets & Tracksuits", count: "4 pieces" },
-    { label: "Denim & Outerwear", count: "3 pieces" },
-    { label: "Jerseys & Tops", count: "2 pieces" },
-    { label: "Bags & Carryalls", count: "1 piece" },
+    { label: "New Arrivals", count: "SS26" },
+    { label: "Women", count: "8 Subcategories" },
+    { label: "Men", count: "7 Subcategories" },
+    { label: "Sets & Tracksuits", count: "Collection" },
+    { label: "Archives", count: "5 Records" },
   ];
 
   const toggleExpand = (label: string) => {
@@ -1852,7 +2335,11 @@ function MobileMenu({
                     key={cat.label}
                     onClick={() => {
                       onClose();
-                      go("collection", undefined, cat.label);
+                      if (cat.label === "Archives") {
+                        go("lookbook", undefined, "Archives", "Lookbooks");
+                      } else {
+                        go("collection", undefined, cat.label, "All");
+                      }
                     }}
                     className="border border-ivory/15 bg-white/[0.04] p-3 text-left hover:border-chartreuse hover:bg-white/[0.08] transition group min-h-[52px]"
                   >
@@ -1871,58 +2358,63 @@ function MobileMenu({
             <div className="mt-5 space-y-3">
               {shopifyMenus.map((menu) => {
                 const isExpanded = expandedMenu === menu.label;
+                const subs = navGroups[menu.label] || [];
+                const hasSubs = subs.length > 0;
+
                 return (
                   <div key={menu.label} className="border-b border-ivory/10 pb-3">
                     <div className="flex items-center justify-between w-full">
                       <button
                         onClick={() => {
                           onClose();
-                          go(menu.page);
+                          if (menu.label === "Archives") {
+                            go("lookbook", undefined, "Archives", "Lookbooks");
+                          } else {
+                            go(menu.page, undefined, menu.label, "All");
+                          }
                         }}
                         className="text-left font-display text-xl sm:text-2xl uppercase tracking-[0.12em] text-ivory hover:text-chartreuse transition flex-1 py-1"
                       >
                         {menu.label}
                       </button>
-                      <button
-                        onClick={() => toggleExpand(menu.label)}
-                        className="p-2 text-ivory/60 hover:text-chartreuse transition min-h-[44px] min-w-[44px] flex items-center justify-center"
-                        aria-label={`Toggle ${menu.label} subcategories`}
-                      >
-                        <ChevronDown
-                          size={18}
-                          className={cx("transition-transform duration-200", isExpanded && "rotate-180 text-chartreuse")}
-                        />
-                      </button>
+                      {hasSubs ? (
+                        <button
+                          onClick={() => toggleExpand(menu.label)}
+                          className="p-2 text-ivory/60 hover:text-chartreuse transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          aria-label={`Toggle ${menu.label} subcategories`}
+                        >
+                          <ChevronDown
+                            size={18}
+                            className={cx("transition-transform duration-200", isExpanded && "rotate-180 text-chartreuse")}
+                          />
+                        </button>
+                      ) : (
+                        <ArrowRight size={16} className="text-white/30 mr-2" />
+                      )}
                     </div>
 
                     {/* Accordion Sub-Items */}
                     <AnimatePresence>
-                      {isExpanded && (
+                      {isExpanded && hasSubs && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
                           transition={{ duration: 0.25 }}
-                          className="overflow-hidden pl-3 pt-2 space-y-2 border-l border-chartreuse/40 mt-2"
+                          className="overflow-hidden pl-3 pt-2 space-y-1.5 border-l border-chartreuse/40 mt-2"
                         >
-                          {menu.columns.flatMap((col) => col.items).map((item) => (
+                          {subs.map((item) => (
                             <button
                               key={item}
                               onClick={() => {
                                 onClose();
-                                go(
-                                  "collection",
-                                  undefined,
-                                  item.includes("Set")
-                                    ? "Sets & Tracksuits"
-                                    : item.includes("Jersey")
-                                    ? "Jerseys & Tops"
-                                    : item.includes("Duffle")
-                                    ? "Bags & Carryalls"
-                                    : "All"
-                                );
+                                if (menu.label === "Archives") {
+                                  go("lookbook", undefined, "Archives", item);
+                                } else {
+                                  go("collection", undefined, menu.label, item);
+                                }
                               }}
-                              className="block text-left font-sans text-xs text-white/80 hover:text-chartreuse py-1.5 transition truncate w-full"
+                              className="block text-left font-sans text-sm text-white/80 hover:text-chartreuse py-1.5 transition truncate w-full"
                             >
                               {item}
                             </button>
@@ -1969,11 +2461,13 @@ function MobileMenu({
   );
 }
 
-function SearchOverlay({ open, onClose, go }: { open: boolean; onClose: () => void; go: (page: Page, product?: Product) => void }) {
+function SearchOverlay({ open, onClose, go }: { open: boolean; onClose: () => void; go: (page: Page, product?: Product, category?: string, subCategory?: string) => void }) {
   const [query, setQuery] = useState("");
-  const results = products.filter(
-    (product) => product.title.toLowerCase().includes(query.toLowerCase()) || product.category.toLowerCase().includes(query.toLowerCase())
-  );
+  const results = products.filter((product) => {
+    const main = Array.isArray(product.mainCategory) ? product.mainCategory.join(" ") : (product.mainCategory || "");
+    const sub = product.subCategory || "";
+    return `${product.title} ${product.category} ${main} ${sub} ${product.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase());
+  });
 
   return (
     <AnimatePresence>
@@ -1996,12 +2490,12 @@ function SearchOverlay({ open, onClose, go }: { open: boolean; onClose: () => vo
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               autoFocus
-              placeholder="Search by silhouette, material, or code..."
+              placeholder="Search by category, silhouette, or material..."
               className="w-full border-b-2 border-ink bg-transparent pb-3 sm:pb-4 font-display text-xl sm:text-4xl outline-none focus:border-chartreuse transition"
             />
             <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 font-mono text-xs uppercase tracking-wideLuxury text-taupe font-medium">
-              <span className="mr-2 self-center font-semibold">Popular Searches:</span>
-              {["Tracksuit", "Denim", "Jersey", "Jumpsuit", "Duffle Bag", "Velvet"].map((trend) => (
+              <span className="mr-2 self-center font-semibold">Categories:</span>
+              {["New Arrivals", "Women", "Men", "Sets & Tracksuits", "Archives", "T-Shirts", "Jackets", "Hoodies & Sweatshirts"].map((trend) => (
                 <button
                   key={trend}
                   onClick={() => setQuery(trend)}
@@ -2024,7 +2518,7 @@ function SearchOverlay({ open, onClose, go }: { open: boolean; onClose: () => vo
                   <div className="aspect-[3/4] w-full overflow-hidden bg-parchment">
                     <img src={product.images[0]} alt={product.title} className="h-full w-full object-cover group-hover:scale-105 transition" />
                   </div>
-                  <p className="mt-2 sm:mt-3 font-mono text-xs uppercase tracking-wider text-taupe truncate font-medium">{product.category}</p>
+                  <p className="mt-2 sm:mt-3 font-mono text-xs uppercase tracking-wider text-taupe truncate font-medium">{product.subCategory || product.category}</p>
                   <p className="mt-1 font-display text-xs uppercase leading-snug group-hover:text-chartreuse transition truncate">{product.title}</p>
                   <p className="mt-1 font-mono text-xs font-semibold text-chartreuse">{formatMoney(product.price)}</p>
                 </button>

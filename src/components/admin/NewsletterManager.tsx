@@ -25,6 +25,10 @@ export const NewsletterManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = api.subscribe(["newsletter_subscribers"], () => {
+      loadData();
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleToggle = async (id: string) => {

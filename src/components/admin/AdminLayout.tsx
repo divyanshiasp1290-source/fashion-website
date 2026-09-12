@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { isSupabaseConfigured } from "../../lib/supabase";
+import { getDatabaseStatus } from "../../lib/supabase";
 import { MaisonMakeevaLogo } from "../MaisonMakeevaLogo";
 
 export type AdminSection =
@@ -45,7 +45,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isSupa = isSupabaseConfigured();
+  const dbStatus = getDatabaseStatus();
 
   const navItems: Array<{ id: AdminSection; label: string; icon: React.FC<{ size?: number; className?: string }> }> = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -206,10 +206,32 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             </h1>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4 font-mono text-xs">
-            <div className="hidden sm:flex items-center gap-2 border border-gray-200 px-3 py-1.5 bg-gray-50 text-gray-700">
-              <span className={`h-2 w-2 rounded-full ${isSupa ? "bg-emerald-500 animate-pulse" : "bg-coral"}`} />
-              <span className="text-gray-800 font-medium truncate max-w-[180px]">{user?.full_name || user?.email}</span>
+          <div className="flex items-center gap-2.5 sm:gap-3 font-mono text-xs">
+            {/* Database & Realtime Status Badge */}
+            <div
+              className={`flex items-center gap-1.5 sm:gap-2 border px-2.5 py-1 font-mono text-[10px] sm:text-xs ${
+                dbStatus.isConfigured
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-amber-200 bg-amber-50 text-amber-800"
+              }`}
+              title={
+                dbStatus.isConfigured
+                  ? "Connected to live Supabase PostgreSQL with Realtime subscriptions active"
+                  : "Running in Development Preview Mode with Mock Storage. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to connect live Supabase database."
+              }
+            >
+              <span
+                className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${
+                  dbStatus.isConfigured ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                }`}
+              />
+              <span className="font-bold uppercase tracking-wider">
+                {dbStatus.isConfigured ? "Supabase Live" : "Preview Mode (Mock)"}
+              </span>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 border border-gray-200 px-3 py-1 bg-gray-50 text-gray-700">
+              <span className="text-gray-800 font-medium truncate max-w-[160px]">{user?.full_name || user?.email}</span>
               <span className="bg-ink text-white px-1.5 py-0.5 text-[10px] font-bold uppercase">
                 {user?.role}
               </span>
@@ -217,7 +239,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
             <button
               onClick={onBackToStore}
-              className="flex items-center gap-1.5 bg-gray-100 hover:bg-ink hover:text-white transition px-3 py-1.5 uppercase tracking-wider text-ink border border-gray-200 font-medium"
+              className="flex items-center gap-1.5 bg-gray-100 hover:bg-ink hover:text-white transition px-3 py-1 uppercase tracking-wider text-ink border border-gray-200 font-medium"
             >
               <Eye size={13} />
               <span className="hidden sm:inline">Store</span>

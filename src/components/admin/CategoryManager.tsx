@@ -51,6 +51,10 @@ export const CategoryManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = api.subscribe(["categories"], () => {
+      loadData();
+    });
+    return () => unsubscribe();
   }, []);
 
   const openAddCategoryModal = () => {

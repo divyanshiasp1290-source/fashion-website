@@ -81,6 +81,13 @@ export const ProductManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = api.subscribe(
+      ["products", "product_images", "categories", "collections"],
+      () => {
+        loadData();
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
   const openCreateModal = () => {

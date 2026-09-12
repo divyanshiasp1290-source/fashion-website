@@ -31,6 +31,10 @@ export const ContactManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = api.subscribe(["contact_messages"], () => {
+      loadData();
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleUpdateStatus = async (id: string, status: DbContactMessage["status"]) => {

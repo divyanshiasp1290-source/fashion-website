@@ -41,6 +41,10 @@ export const OrderManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = api.subscribe(["orders", "order_items"], () => {
+      loadData();
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleStatusChange = async (orderId: string, status: OrderStatus) => {

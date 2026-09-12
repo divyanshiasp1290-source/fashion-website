@@ -33,6 +33,10 @@ export const CustomerManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = api.subscribe(["customers", "orders"], () => {
+      loadData();
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleToggleStatus = async (id: string) => {

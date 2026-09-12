@@ -55,6 +55,10 @@ export const CollectionManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = api.subscribe(["collections", "products"], () => {
+      loadData();
+    });
+    return () => unsubscribe();
   }, []);
 
   const openCreateModal = () => {

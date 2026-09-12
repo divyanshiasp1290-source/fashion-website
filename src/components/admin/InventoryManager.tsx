@@ -52,6 +52,10 @@ export const InventoryManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = api.subscribe(["inventory", "products"], () => {
+      loadData();
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleStockAdjust = async (item: DbInventory, delta: number) => {

@@ -39,6 +39,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   useEffect(() => {
     fetchStats();
+    const unsubscribe = api.subscribe(
+      ["products", "orders", "contact_messages", "inventory", "customers"],
+      () => {
+        fetchStats();
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
   const handleQuickStatusChange = async (orderId: string, status: OrderStatus) => {

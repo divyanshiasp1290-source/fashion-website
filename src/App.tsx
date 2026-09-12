@@ -182,7 +182,7 @@ export default function App() {
     } catch {}
   }, [cart]);
 
-  // Load dynamic catalog from Supabase / Mock adapter
+  // Load dynamic catalog from Supabase / Mock adapter with Realtime subscription
   useEffect(() => {
     let isMounted = true;
     async function loadDynamicCatalog() {
@@ -193,53 +193,46 @@ export default function App() {
           api.getCollections(),
         ]);
         if (isMounted) {
-          if (dbCats && dbCats.length > 0) {
+          if (dbCats) {
             setSiteCategories(dbCats);
           }
-          if (dbProds && dbProds.length > 0) {
-            const mapped = dbProds.map((db) => mapDbProductToCatalogProduct(db, dbCats, dbCols));
+          if (dbProds) {
+            const mapped = dbProds.map((db) => mapDbProductToCatalogProduct(db, dbCats || [], dbCols || []));
             setCatalogProducts(mapped);
             setSelectedProduct((prev) => mapped.find((m) => m.id === prev.id) || mapped[0] || prev);
           }
-          if (dbCols && dbCols.length > 0) {
+          if (dbCols) {
             const mappedCols = dbCols.map((c) => mapDbCollectionToCatalogCollection(c, dbProds || []));
             setSiteCollections(mappedCols);
           }
         }
       } catch (err) {
-        console.warn("Dynamic catalog fetch fallback to static catalog:", err);
+        console.warn("Dynamic catalog fetch notice:", err);
       }
     }
     loadDynamicCatalog();
 
-    // Multi-tab and real-time synchronization
-    const handleSync = () => {
+    // Supabase Realtime + Cross-tab synchronization
+    const unsubscribe = api.subscribe(
+      ["products", "product_images", "categories", "collections", "inventory"],
+      () => {
+        loadDynamicCatalog();
+      }
+    );
+
+    const handleFocus = () => {
       loadDynamicCatalog();
     };
-
-    window.addEventListener("focus", handleSync);
-    window.addEventListener("storage", handleSync);
-    window.addEventListener("mm-catalog-sync", handleSync);
-
-    const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("mm-catalog-sync") : null;
-    if (bc) {
-      bc.onmessage = () => {
-        handleSync();
-      };
-    }
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       isMounted = false;
-      window.removeEventListener("focus", handleSync);
-      window.removeEventListener("storage", handleSync);
-      window.removeEventListener("mm-catalog-sync", handleSync);
-      if (bc) {
-        bc.close();
-      }
+      unsubscribe();
+      window.removeEventListener("focus", handleFocus);
     };
-  }, [page]);
+  }, []);
 
-  // Public collections: filter out inactive collections (Requirement 5 & 6)
+  // Public collections: filter out inactive collections
   const activeCollections = useMemo(() => {
     return siteCollections.filter((c) => c.status !== "inactive");
   }, [siteCollections]);
@@ -248,6 +241,11 @@ export default function App() {
   const activeDbCategories = useMemo(() => {
     return siteCategories.filter((c) => c.status !== "inactive");
   }, [siteCategories]);
+
+  // Public products: filter out inactive and draft products
+  const activeProducts = useMemo(() => {
+    return catalogProducts.filter((p) => p.status === "active");
+  }, [catalogProducts]);
 
   // Active Main Categories (top-level, parent_id === null)
   const activeMainCategories = useMemo(() => {
@@ -333,7 +331,7 @@ export default function App() {
   };
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
-  const wishedProducts = catalogProducts.filter((product) => wishlist.includes(product.id));
+  const wishedProducts = activeProducts.filter((product) => wishlist.includes(product.id));
 
   // If viewing admin panel, render dedicated admin portal
   if (page === "admin") {
@@ -350,7 +348,7 @@ export default function App() {
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
-        products={catalogProducts}
+        products={activeProducts}
         collections={activeCollections}
       />
     ),
@@ -363,7 +361,7 @@ export default function App() {
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
         initialCategory={activeCategory}
         initialSubCategory={activeSubCategory}
-        products={catalogProducts}
+        products={activeProducts}
         categories={activeMainCategories}
         navGroups={dynamicNavGroups}
       />
@@ -376,7 +374,7 @@ export default function App() {
         toggleWishlist={toggleWishlist}
         addToCart={addToCart}
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
-        products={catalogProducts}
+        products={activeProducts}
       />
     ),
     lookbook: (
@@ -390,7 +388,7 @@ export default function App() {
     ),
     about: <AboutPage go={go} />,
     contact: <ContactPage />,
-    search: <SearchPage go={go} products={catalogProducts} />,
+    search: <SearchPage go={go} products={activeProducts} />,
     wishlist: (
       <WishlistPage
         products={wishedProducts}
@@ -444,7 +442,7 @@ export default function App() {
         navGroups={dynamicNavGroups}
         mainCategories={activeMainCategories}
       />
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} go={go} products={catalogProducts} />
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} go={go} products={activeProducts} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} go={go} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />
 
       {/* Curator Quick-View Specimen Modal */}
@@ -2238,14 +2236,29 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
   const [myOrders, setMyOrders] = useState<DbOrder[]>([]);
 
   useEffect(() => {
-    if (user) {
+    if (!user) {
+      setMyOrders([]);
+      return;
+    }
+
+    const fetchOrders = () => {
       api.getOrders().then((all) => {
         const mine = all.filter(
           (o) => o.customer_id === user.id || o.customer_email.toLowerCase() === user.email.toLowerCase()
         );
         setMyOrders(mine);
       });
-    }
+    };
+
+    fetchOrders();
+
+    const unsubscribe = api.subscribe(["orders", "order_items"], () => {
+      fetchOrders();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [user]);
 
   const handleAuth = async (e: React.FormEvent) => {

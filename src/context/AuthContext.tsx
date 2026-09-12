@@ -98,6 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 parsed.role = "customer";
                 localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(parsed));
               }
+              if (parsed?.email?.toLowerCase() === "admin@maisonmakeeva.com") {
+                parsed.role = "admin";
+                localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(parsed));
+              }
               setUser(parsed);
             }
           }
@@ -112,6 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const parsed = JSON.parse(saved);
             if (parsed?.email?.toLowerCase() === "divyanshiasp1290@gmail.com" && parsed?.role === "admin") {
               parsed.role = "customer";
+              localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(parsed));
+            }
+            if (parsed?.email?.toLowerCase() === "admin@maisonmakeeva.com") {
+              parsed.role = "admin";
               localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(parsed));
             }
             setUser(parsed);
@@ -159,19 +167,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanEmail = email.trim().toLowerCase();
 
     // 1. Dedicated Atelier Director Master Admin Authentication
-    if (
-      cleanEmail === "admin@maisonmakeeva.com" &&
-      (password === "admin123" || password === "Admin@2026" || password === "makeeva2026")
-    ) {
-      const adminUser: AuthUser = {
-        id: "admin-atelier-dir",
-        email: "admin@maisonmakeeva.com",
-        role: "admin",
-        full_name: "Atelier Director",
-      };
-      setUser(adminUser);
-      localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(adminUser));
-      return { success: true, role: "admin" };
+    if (cleanEmail === "admin@maisonmakeeva.com") {
+      if (password === "_Admin@1290") {
+        const adminUser: AuthUser = {
+          id: "admin-atelier-dir",
+          email: "admin@maisonmakeeva.com",
+          role: "admin",
+          full_name: "Atelier Director",
+        };
+        setUser(adminUser);
+        localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(adminUser));
+        return { success: true, role: "admin" };
+      } else {
+        return {
+          success: false,
+          error: "Invalid administrative credentials.",
+        };
+      }
     }
 
     if (isSupabaseConfigured()) {
@@ -297,6 +309,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanEmail = email.trim().toLowerCase();
     const effectiveName = fullName?.trim() || cleanEmail.split("@")[0];
     const localId = `cust-${Date.now()}`;
+
+    // Prevent registering administrative identity as a normal client
+    if (cleanEmail === "admin@maisonmakeeva.com") {
+      return {
+        success: false,
+        error: "This address is reserved exclusively for Atelier Administration and cannot be registered as a client account.",
+      };
+    }
 
     // Always register in local client registry and mock storage immediately
     saveLocalClientRecord({

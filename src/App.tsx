@@ -111,7 +111,16 @@ export default function App() {
   });
   const [siteCategories, setSiteCategories] = useState<DbCategory[]>([]);
   const [introVisible, setIntroVisible] = useState(true);
-  const [page, setPage] = useState<Page>("home");
+  const [page, setPage] = useState<Page>(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path === "/admin" || path.startsWith("/admin/") || hash === "#admin") {
+        return "admin";
+      }
+    }
+    return "home";
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -142,8 +151,10 @@ export default function App() {
     const handlePopState = () => {
       const path = window.location.pathname;
       const hash = window.location.hash;
-      if (path === "/admin" || hash === "#admin") {
+      if (path === "/admin" || path.startsWith("/admin/") || hash === "#admin") {
         setPage("admin");
+      } else {
+        setPage("home");
       }
     };
     handlePopState();
@@ -289,7 +300,7 @@ export default function App() {
     setMenuOpen(false);
     if (next === "admin") {
       window.history.pushState(null, "", "/admin");
-    } else if (window.location.pathname === "/admin") {
+    } else if (window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/")) {
       window.history.pushState(null, "", "/");
     }
     window.scrollTo({ top: 0, behavior: "smooth" });

@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Boxes,
-  Database,
   Eye,
   FolderTree,
   Inbox,
@@ -61,27 +60,22 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f7f4] text-ink flex">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col justify-between border-r border-gray-200 bg-white p-5 shrink-0 text-ink shadow-sm">
+    <div className="h-screen w-full overflow-hidden bg-[#f8f7f4] text-ink flex">
+      {/* Desktop Sidebar: Fixed & Locked in Place */}
+      <aside className="hidden lg:flex w-64 xl:w-72 h-screen sticky top-0 flex-col justify-between border-r border-gray-200 bg-white p-5 shrink-0 text-ink shadow-sm z-20 overflow-y-auto select-none">
         <div className="space-y-6">
           {/* Brand Header */}
           <div className="border-b border-gray-100 pb-5">
             <div className="flex items-center gap-3">
               <MaisonMakeevaLogo className="h-8 w-auto text-ink shrink-0" />
-              <div>
-                <h2 className="font-display text-sm uppercase tracking-[0.14em] font-bold text-ink">
-                  Maison Makeeva
-                </h2>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-coral font-semibold">
-                  Atelier Control System
-                </span>
-              </div>
+              <h2 className="font-display text-sm sm:text-base uppercase tracking-[0.14em] font-bold text-ink leading-tight">
+                Maison Makeeva
+              </h2>
             </div>
           </div>
 
           {/* Nav List */}
-          <nav className="space-y-1 font-mono text-xs uppercase tracking-wider">
+          <nav className="space-y-1.5 font-mono text-sm uppercase tracking-wide">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeSection === item.id;
@@ -89,13 +83,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onSelectSection(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 transition-all text-left ${
+                  className={`w-full flex items-center gap-3.5 px-3.5 py-3 transition-all text-left ${
                     isActive
                       ? "bg-ink text-white font-bold shadow-sm"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-ink"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-ink font-medium"
                   }`}
                 >
-                  <Icon size={16} className={isActive ? "text-white" : "text-gray-500"} />
+                  <Icon size={18} className={isActive ? "text-white" : "text-gray-500"} />
                   <span className="truncate">{item.label}</span>
                 </button>
               );
@@ -103,31 +97,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </nav>
         </div>
 
-        {/* Database Status & Footer */}
-        <div className="pt-4 border-t border-gray-200 space-y-3">
-          <div className="flex items-center justify-between text-[11px] font-mono px-2.5 py-1.5 bg-gray-50 border border-gray-200 text-gray-600">
-            <span className="flex items-center gap-1.5 text-gray-500">
-              <Database size={12} className={isSupa ? "text-emerald-600" : "text-coral"} />
-              Storage:
-            </span>
-            <span className={`font-semibold ${isSupa ? "text-emerald-700" : "text-coral"}`}>
-              {isSupa ? "Supabase Live" : "Local Sandbox"}
-            </span>
-          </div>
-
-          <button
-            onClick={onBackToStore}
-            className="w-full flex items-center justify-center gap-2 border border-gray-300 bg-white py-2 font-mono text-xs uppercase tracking-wider text-ink hover:bg-ink hover:text-white transition font-medium"
-          >
-            <Eye size={14} />
-            <span>View Storefront</span>
-          </button>
-
+        {/* Sidebar Footer */}
+        <div className="pt-4 border-t border-gray-200">
           <button
             onClick={logout}
-            className="w-full flex items-center justify-center gap-2 py-1.5 font-mono text-[11px] uppercase tracking-wider text-gray-500 hover:text-red-600 transition"
+            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-3.5 border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-600 font-mono text-sm uppercase tracking-wide text-gray-600 transition duration-150 font-medium"
           >
-            <LogOut size={13} />
+            <LogOut size={16} />
             <span>Sign Out</span>
           </button>
         </div>
@@ -164,7 +140,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                   </button>
                 </div>
 
-                <nav className="space-y-1 font-mono text-xs uppercase tracking-wider">
+                <nav className="space-y-1.5 font-mono text-sm uppercase tracking-wide">
                   {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeSection === item.id;
@@ -175,13 +151,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                           onSelectSection(item.id);
                           setMobileOpen(false);
                         }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 transition text-left ${
+                        className={`w-full flex items-center gap-3.5 px-3.5 py-3 transition text-left ${
                           isActive
                             ? "bg-ink text-white font-bold"
-                            : "text-gray-600 hover:bg-gray-100 hover:text-ink"
+                            : "text-gray-600 hover:bg-gray-100 hover:text-ink font-medium"
                         }`}
                       >
-                        <Icon size={16} />
+                        <Icon size={18} />
                         <span>{item.label}</span>
                       </button>
                     );
@@ -214,9 +190,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Top Bar */}
-        <header className="h-16 border-b border-gray-200 bg-white/85 backdrop-blur-md px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+        <header className="h-16 shrink-0 border-b border-gray-200 bg-white/85 backdrop-blur-md px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(true)}

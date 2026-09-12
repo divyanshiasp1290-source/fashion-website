@@ -12,6 +12,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { api } from "../../services/api";
 import type { DbCategory } from "../../types/database";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 
 export const CategoryManager: React.FC = () => {
   const [categories, setCategories] = useState<DbCategory[]>([]);
@@ -21,6 +22,11 @@ export const CategoryManager: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<DbCategory | null>(null);
   const [parentForNewSub, setParentForNewSub] = useState<DbCategory | null>(null);
+
+  // Delete modal state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -33,9 +39,14 @@ export const CategoryManager: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const data = await api.getCategories();
-    setCategories(data);
-    setLoading(false);
+    try {
+      const data = await api.getCategories();
+      setCategories(data);
+    } catch (err) {
+      console.error("Failed to load categories:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -85,40 +96,56 @@ export const CategoryManager: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"? This will delete any associated subcategories.`)) {
-      await api.deleteCategory(id);
-      loadData();
+  const handleDelete = (id: string, name: string) => {
+    setDeleteTarget({ id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await api.deleteCategory(deleteTarget.id);
+      setDeleteTarget(null);
+      await loadData();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleToggleStatus = async (cat: DbCategory) => {
     const nextStatus = cat.status === "active" ? "inactive" : "active";
     await api.updateCategory(cat.id, { status: nextStatus });
-    loadData();
+    await loadData();
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name) return;
+    if (!form.name.trim() || isSaving) return;
 
-    const payload: Partial<DbCategory> = {
-      name: form.name,
-      slug: form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      parent_id: form.parent_id || null,
-      sort_order: Number(form.sort_order),
-      description: form.description,
-      status: form.status,
-    };
+    setIsSaving(true);
+    try {
+      const payload: Partial<DbCategory> = {
+        name: form.name.trim(),
+        slug: form.slug.trim() || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        parent_id: form.parent_id || null,
+        sort_order: Number(form.sort_order) || 1,
+        description: form.description ? form.description.trim() : null,
+        status: form.status,
+      };
 
-    if (editingCategory) {
-      await api.updateCategory(editingCategory.id, payload);
-    } else {
-      await api.createCategory(payload);
+      if (editingCategory) {
+        await api.updateCategory(editingCategory.id, payload);
+      } else {
+        await api.createCategory(payload);
+      }
+
+      setModalOpen(false);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to save category:", err);
+    } finally {
+      setIsSaving(false);
     }
-
-    setModalOpen(false);
-    loadData();
   };
 
   const mainCategories = categories
@@ -349,15 +376,28 @@ export const CategoryManager: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="bg-ink hover:bg-gray-800 px-5 py-1.5 font-bold text-white uppercase text-xs transition shadow-xs"
+                  disabled={isSaving}
+                  className="bg-ink hover:bg-gray-800 disabled:opacity-60 px-5 py-1.5 font-bold text-white uppercase text-xs transition shadow-xs cursor-pointer"
                 >
-                  Save Category
+                  {isSaving ? "Saving Category..." : "Save Category"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Category"
+        message="Are you sure you want to delete this category? This will delete any associated subcategories and safely unlink any products assigned to them."
+        itemName={deleteTarget ? `Category: ${deleteTarget.name}` : undefined}
+        confirmLabel="Delete Category"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setDeleteTarget(null)}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

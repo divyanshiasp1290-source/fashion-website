@@ -184,8 +184,6 @@ export function RunwayLookbook({
             style={{ perspective: "1200px" }}
             onPointerMove={handlePointerMove}
             onPointerLeave={handlePointerLeave}
-            data-cursor="view"
-            data-cursor-text="LOOK"
           >
             <AnimatePresence mode="wait">
               <motion.img

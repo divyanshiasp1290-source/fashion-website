@@ -72,7 +72,8 @@ export function ScrollReveal({
               scrollTrigger: {
                 trigger: el,
                 start: "top 85%",
-                toggleActions: "play none none reverse",
+                toggleActions: "play none none none",
+                once: true,
               },
             }
           );
@@ -91,7 +92,8 @@ export function ScrollReveal({
               scrollTrigger: {
                 trigger: el,
                 start: "top 88%",
-                toggleActions: "play none none reverse",
+                toggleActions: "play none none none",
+                once: true,
               },
             }
           );
@@ -110,7 +112,8 @@ export function ScrollReveal({
               scrollTrigger: {
                 trigger: el,
                 start: "top 88%",
-                toggleActions: "play none none reverse",
+                toggleActions: "play none none none",
+                once: true,
               },
             }
           );
@@ -129,7 +132,8 @@ export function ScrollReveal({
               scrollTrigger: {
                 trigger: el,
                 start: "top 88%",
-                toggleActions: "play none none reverse",
+                toggleActions: "play none none none",
+                once: true,
               },
             }
           );
@@ -149,7 +153,8 @@ export function ScrollReveal({
               scrollTrigger: {
                 trigger: el,
                 start: "top 88%",
-                toggleActions: "play none none reverse",
+                toggleActions: "play none none none",
+                once: true,
               },
             }
           );
@@ -169,7 +174,8 @@ export function ScrollReveal({
               scrollTrigger: {
                 trigger: el,
                 start: "top 88%",
-                toggleActions: "play none none reverse",
+                toggleActions: "play none none none",
+                once: true,
               },
             }
           );
@@ -188,7 +194,8 @@ export function ScrollReveal({
               scrollTrigger: {
                 trigger: el,
                 start: "top 88%",
-                toggleActions: "play none none reverse",
+                toggleActions: "play none none none",
+                once: true,
               },
             }
           );

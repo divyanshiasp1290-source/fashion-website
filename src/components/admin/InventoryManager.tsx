@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Boxes,
   CheckCircle,
+  Edit2,
   Filter,
   Minus,
   Plus,
@@ -24,13 +25,22 @@ export const InventoryManager: React.FC = () => {
   const [search, setSearch] = useState("");
   const [stockLevelFilter, setStockLevelFilter] = useState<"all" | "low" | "out">("all");
 
-  // Variant Modal
+  // Add Variant Modal
   const [variantModalOpen, setVariantModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [newSize, setNewSize] = useState("M");
   const [newColor, setNewColor] = useState("Default");
   const [newStock, setNewStock] = useState(10);
   const [newThreshold, setNewThreshold] = useState(5);
+
+  // Edit Variant Modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<(DbInventory & { product?: DbProduct }) | null>(null);
+  const [editSize, setEditSize] = useState("");
+  const [editColor, setEditColor] = useState("");
+  const [editStock, setEditStock] = useState(0);
+  const [editThreshold, setEditThreshold] = useState(5);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -83,6 +93,37 @@ export const InventoryManager: React.FC = () => {
 
     setVariantModalOpen(false);
     loadData();
+  };
+
+  const openEditModal = (item: DbInventory & { product?: DbProduct }) => {
+    setEditingItem(item);
+    setEditSize(item.size);
+    setEditColor(item.color);
+    setEditStock(item.stock_quantity);
+    setEditThreshold(item.low_stock_threshold);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    setSavingEdit(true);
+    try {
+      await api.updateInventory(editingItem.id, {
+        size: editSize,
+        color: editColor,
+        stock_quantity: Math.max(0, editStock),
+        low_stock_threshold: Math.max(1, editThreshold),
+      });
+      setEditModalOpen(false);
+      setEditingItem(null);
+      await loadData();
+    } catch (err) {
+      console.error("Error updating inventory variant:", err);
+      alert("Failed to update inventory variant.");
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   // Enriched & filtered inventory items
@@ -223,7 +264,7 @@ export const InventoryManager: React.FC = () => {
               <th className="p-4">Current Units</th>
               <th className="p-4">Low Alert At</th>
               <th className="p-4">Status Indicator</th>
-              <th className="p-4 text-right">Remove</th>
+              <th className="p-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -313,13 +354,23 @@ export const InventoryManager: React.FC = () => {
 
                   {/* Actions */}
                   <td className="p-4 text-right">
-                    <button
-                      onClick={() => handleDeleteVariant(item.id)}
-                      className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                      title="Remove variant"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => openEditModal(item)}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[11px] border border-gray-300 bg-white hover:border-ink text-gray-700 hover:text-ink font-semibold uppercase transition shadow-2xs"
+                        title="Edit variant details"
+                      >
+                        <Edit2 size={12} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteVariant(item.id)}
+                        className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition"
+                        title="Remove variant"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -417,6 +468,133 @@ export const InventoryManager: React.FC = () => {
                   className="bg-ink hover:bg-gray-800 px-5 py-1.5 font-bold text-white uppercase text-xs transition shadow-xs"
                 >
                   Save Variant
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT VARIANT MODAL */}
+      {editModalOpen && editingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+          <div className="relative w-full max-w-md bg-white border border-gray-200 p-6 shadow-2xl font-mono text-xs text-ink">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-5">
+              <div>
+                <span className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider">
+                  Stock Variant Editor
+                </span>
+                <h3 className="font-display text-base uppercase tracking-wider text-ink font-bold">
+                  Edit Silhouette Variant
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setEditModalOpen(false);
+                  setEditingItem(null);
+                }}
+                className="text-gray-400 hover:text-ink p-1 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Target Product Silhouette Info */}
+            <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 p-3 mb-4">
+              <img
+                src={
+                  editingItem.product?.images?.[0]?.image_url ||
+                  "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80"
+                }
+                alt={editingItem.product?.name || "Silhouette"}
+                className="h-12 w-10 object-cover bg-white border border-gray-200 shrink-0"
+              />
+              <div className="overflow-hidden">
+                <p className="font-bold text-ink truncate">
+                  {editingItem.product?.name || "Unassigned Silhouette"}
+                </p>
+                <p className="text-[10px] text-gray-500">
+                  SKU: {editingItem.product?.sku || editingItem.product_id}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-600 mb-1 uppercase font-semibold text-[10px] tracking-wider">
+                    Size Proportion *
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={editSize}
+                    onChange={(e) => setEditSize(e.target.value)}
+                    placeholder="e.g. S, M, L, XL, EU 42"
+                    className="w-full bg-white border border-gray-300 p-2 text-ink outline-none focus:border-ink placeholder:text-gray-400 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-600 mb-1 uppercase font-semibold text-[10px] tracking-wider">
+                    Color / Patina *
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={editColor}
+                    onChange={(e) => setEditColor(e.target.value)}
+                    placeholder="e.g. Noir, Ivory, Washed indigo"
+                    className="w-full bg-white border border-gray-300 p-2 text-ink outline-none focus:border-ink placeholder:text-gray-400 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-600 mb-1 uppercase font-semibold text-[10px] tracking-wider">
+                    Current Units *
+                  </label>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    value={editStock}
+                    onChange={(e) => setEditStock(parseInt(e.target.value, 10) || 0)}
+                    className="w-full bg-white border border-gray-300 p-2 text-ink font-bold outline-none focus:border-ink placeholder:text-gray-400 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-600 mb-1 uppercase font-semibold text-[10px] tracking-wider">
+                    Low Stock Threshold *
+                  </label>
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    value={editThreshold}
+                    onChange={(e) => setEditThreshold(parseInt(e.target.value, 10) || 1)}
+                    className="w-full bg-white border border-gray-300 p-2 text-ink outline-none focus:border-ink placeholder:text-gray-400 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditModalOpen(false);
+                    setEditingItem(null);
+                  }}
+                  className="px-3 py-1.5 border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition text-xs uppercase font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="bg-ink hover:bg-gray-800 px-5 py-1.5 font-bold text-white uppercase text-xs transition shadow-xs disabled:opacity-50"
+                >
+                  {savingEdit ? "Updating..." : "Save Changes"}
                 </button>
               </div>
             </form>

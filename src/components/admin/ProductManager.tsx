@@ -11,6 +11,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Star,
   Trash2,
   Upload,
   X,
@@ -122,7 +123,7 @@ export const ProductManager: React.FC = () => {
       price: product.price,
       compare_at_price: product.compare_at_price || 0,
       gender: product.gender || "Unisex",
-      category_id: product.category_id || "",
+      category_id: product.subcategory_id || product.category_id || "",
       subcategory_id: product.subcategory_id || "",
       collection_id: product.collection_id || "",
       description: product.description || "",
@@ -146,23 +147,99 @@ export const ProductManager: React.FC = () => {
     if (window.confirm(`Are you sure you want to delete ${name}?`)) {
       await api.deleteProduct(id);
       loadData();
+      try {
+        if (typeof BroadcastChannel !== "undefined") {
+          const bc = new BroadcastChannel("mm-catalog-sync");
+          bc.postMessage({ type: "catalog_changed" });
+          bc.close();
+        }
+        window.dispatchEvent(new CustomEvent("mm-catalog-sync"));
+        localStorage.setItem("mm_catalog_updated_at", String(Date.now()));
+      } catch (e) {}
     }
   };
 
   const handleToggleStatus = async (product: DbProduct) => {
     const nextStatus = product.status === "active" ? "inactive" : "active";
-    await api.updateProduct(product.id, { status: nextStatus });
+    setProducts((prev) =>
+      prev.map((p) => (p.id === product.id ? { ...p, status: nextStatus } : p))
+    );
+    await api.updateProduct(product.id, { ...product, status: nextStatus });
     loadData();
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        const bc = new BroadcastChannel("mm-catalog-sync");
+        bc.postMessage({ type: "status_toggle", id: product.id, status: nextStatus });
+        bc.close();
+      }
+      window.dispatchEvent(new CustomEvent("mm-catalog-sync", { detail: { id: product.id, status: nextStatus } }));
+      localStorage.setItem("mm_catalog_updated_at", String(Date.now()));
+    } catch (e) {}
   };
 
   const handleToggleFeatured = async (product: DbProduct) => {
-    await api.updateProduct(product.id, { featured: !product.featured });
+    const nextVal = !product.featured;
+    const nextBadge = nextVal
+      ? (product.badge && product.badge !== "BEST SELLERS" ? product.badge : "FEATURED")
+      : (product.badge === "FEATURED" || product.badge === "BEST SELLERS" ? null : product.badge);
+
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === product.id
+          ? {
+              ...p,
+              featured: nextVal,
+              badge: nextBadge,
+            }
+          : p
+      )
+    );
+    await api.updateProduct(product.id, {
+      ...product,
+      featured: nextVal,
+      badge: nextBadge,
+    });
     loadData();
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        const bc = new BroadcastChannel("mm-catalog-sync");
+        bc.postMessage({ type: "featured_toggle", id: product.id, featured: nextVal });
+        bc.close();
+      }
+      window.dispatchEvent(new CustomEvent("mm-catalog-sync", { detail: { id: product.id, featured: nextVal } }));
+      localStorage.setItem("mm_catalog_updated_at", String(Date.now()));
+    } catch (e) {}
   };
 
   const handleToggleNewArrival = async (product: DbProduct) => {
-    await api.updateProduct(product.id, { new_arrival: !product.new_arrival });
+    const nextVal = !product.new_arrival;
+    const nextBadge = nextVal ? "NEW ARRIVAL" : (product.badge === "NEW ARRIVAL" ? null : product.badge);
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === product.id
+          ? {
+              ...p,
+              new_arrival: nextVal,
+              badge: nextBadge,
+            }
+          : p
+      )
+    );
+    await api.updateProduct(product.id, {
+      ...product,
+      new_arrival: nextVal,
+      badge: nextBadge,
+    });
     loadData();
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        const bc = new BroadcastChannel("mm-catalog-sync");
+        bc.postMessage({ type: "new_arrival_toggle", id: product.id, new_arrival: nextVal });
+        bc.close();
+      }
+      window.dispatchEvent(new CustomEvent("mm-catalog-sync", { detail: { id: product.id, new_arrival: nextVal } }));
+      localStorage.setItem("mm_catalog_updated_at", String(Date.now()));
+    } catch (e) {}
   };
 
   // Image Management
@@ -208,6 +285,29 @@ export const ProductManager: React.FC = () => {
     const materialsArr = form.materials.split(",").map((s) => s.trim()).filter(Boolean);
     const tagsArr = form.tags.split(",").map((s) => s.trim()).filter(Boolean);
 
+    const selectedCat = categories.find((c) => c.id === form.category_id);
+    const categoryId = selectedCat?.parent_id ? selectedCat.parent_id : (form.category_id || null);
+    const subcategoryId = selectedCat?.parent_id ? selectedCat.id : (form.subcategory_id || null);
+
+    const tagSet = new Set<string>(tagsArr);
+    if (form.gender) tagSet.add(form.gender);
+    if (form.gender.toLowerCase() === "unisex") {
+      tagSet.add("Women");
+      tagSet.add("Men");
+      tagSet.add("Unisex");
+    }
+    if (selectedCat) {
+      tagSet.add(selectedCat.name);
+      if (selectedCat.parent_id) {
+        const parent = categories.find((c) => c.id === selectedCat.parent_id);
+        if (parent) tagSet.add(parent.name);
+      }
+    }
+    if (form.new_arrival) {
+      tagSet.add("NEW ARRIVAL");
+      tagSet.add("New Arrivals");
+    }
+
     const payload: Partial<DbProduct> = {
       name: form.name,
       sku: form.sku,
@@ -215,18 +315,18 @@ export const ProductManager: React.FC = () => {
       price: Number(form.price),
       compare_at_price: form.compare_at_price ? Number(form.compare_at_price) : null,
       gender: form.gender,
-      category_id: form.category_id || null,
-      subcategory_id: form.subcategory_id || null,
+      category_id: categoryId,
+      subcategory_id: subcategoryId,
       collection_id: form.collection_id || null,
       description: form.description,
       short_description: form.short_description,
       story: form.story,
-      badge: form.badge || null,
+      badge: form.badge || (form.new_arrival ? "NEW ARRIVAL" : null),
       status: form.status,
       featured: form.featured,
       new_arrival: form.new_arrival,
       materials: materialsArr,
-      tags: tagsArr,
+      tags: Array.from(tagSet),
     };
 
     if (editingProduct) {
@@ -248,6 +348,15 @@ export const ProductManager: React.FC = () => {
 
     setIsModalOpen(false);
     loadData();
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        const bc = new BroadcastChannel("mm-catalog-sync");
+        bc.postMessage({ type: "catalog_changed" });
+        bc.close();
+      }
+      window.dispatchEvent(new CustomEvent("mm-catalog-sync"));
+      localStorage.setItem("mm_catalog_updated_at", String(Date.now()));
+    } catch (e) {}
   };
 
   // Filtered Products
@@ -322,11 +431,15 @@ export const ProductManager: React.FC = () => {
             className="w-full bg-gray-50 border border-gray-300 px-3 py-2 text-ink outline-none focus:border-ink uppercase cursor-pointer"
           >
             <option value="all">All Categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.parent_id ? `— ${c.name}` : c.name}
-              </option>
-            ))}
+            {categories.map((c) => {
+              const parent = c.parent_id ? categories.find((p) => p.id === c.parent_id) : null;
+              const label = parent ? `${parent.name} → ${c.name}` : c.name;
+              return (
+                <option key={c.id} value={c.id}>
+                  {label}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -415,14 +528,18 @@ export const ProductManager: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleToggleFeatured(product)}
-                      className={`text-[10px] px-1.5 py-0.5 uppercase border ${
+                      className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 uppercase border transition-all ${
                         product.featured
-                          ? "border-coral text-coral bg-coral/10 font-bold"
-                          : "border-gray-200 text-gray-400 hover:border-gray-400"
+                          ? "border-amber-500 text-amber-600 bg-amber-50 font-bold shadow-sm"
+                          : "border-gray-200 text-gray-400 hover:border-amber-400 hover:text-amber-600"
                       }`}
-                      title="Toggle Featured"
+                      title="Star Mark / Feature on Homepage Spotlight"
                     >
-                      Star
+                      <Star
+                        size={10}
+                        className={product.featured ? "text-amber-500 fill-amber-500" : "text-gray-400"}
+                      />
+                      <span>Star</span>
                     </button>
                   </td>
 
@@ -571,11 +688,15 @@ export const ProductManager: React.FC = () => {
                     className="w-full bg-white border border-gray-300 p-2 text-ink outline-none focus:border-ink cursor-pointer"
                   >
                     <option value="">Select Category</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.parent_id ? `— ${c.name}` : c.name}
-                      </option>
-                    ))}
+                    {categories.map((c) => {
+                      const parent = c.parent_id ? categories.find((p) => p.id === c.parent_id) : null;
+                      const label = parent ? `${parent.name} → ${c.name}` : c.name;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {label}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -754,7 +875,10 @@ export const ProductManager: React.FC = () => {
                     onChange={(e) => setForm({ ...form, featured: e.target.checked })}
                     className="accent-ink h-4 w-4"
                   />
-                  <span className="text-gray-700 font-medium">Mark as Featured Spotlight</span>
+                  <span className="text-gray-700 font-medium inline-flex items-center gap-1.5">
+                    <Star size={12} className={form.featured ? "text-amber-500 fill-amber-500" : "text-gray-400"} />
+                    Mark as Featured (Star Mark on Homepage)
+                  </span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">

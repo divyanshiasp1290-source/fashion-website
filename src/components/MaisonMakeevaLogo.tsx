@@ -13,7 +13,7 @@ export interface MaisonMakeevaLogoProps extends React.SVGProps<SVGSVGElement> {
  * - Inner nested V / chevron reflecting the central M
  */
 export const MaisonMakeevaLogo: React.FC<MaisonMakeevaLogoProps> = ({
-  className = "h-8 w-auto",
+  className = "h-8 w-auto aspect-[462/392] shrink-0",
   size,
   ...props
 }) => {

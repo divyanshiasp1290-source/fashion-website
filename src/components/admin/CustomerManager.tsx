@@ -43,6 +43,15 @@ export const CustomerManager: React.FC = () => {
     loadData();
   };
 
+  const handleToggleRole = async (id: string, currentRole: "admin" | "customer") => {
+    const nextRole = currentRole === "admin" ? "customer" : "admin";
+    const updated = await api.updateCustomerRole(id, nextRole);
+    if (updated && selectedCustomer?.id === id) {
+      setSelectedCustomer(updated);
+    }
+    loadData();
+  };
+
   const filtered = useMemo(() => {
     return customers.filter((c) => {
       const name = c.full_name || "";
@@ -114,11 +123,16 @@ export const CustomerManager: React.FC = () => {
                   </td>
                   <td className="p-4 text-gray-600">{cust.email}</td>
                   <td className="p-4">
-                    <span className={`text-[10px] px-2 py-0.5 uppercase font-semibold ${
-                      cust.role === "admin" ? "bg-ink text-white" : "bg-gray-100 text-gray-700 border border-gray-200"
-                    }`}>
-                      {cust.role}
-                    </span>
+                    <button
+                      onClick={() => handleToggleRole(cust.id, cust.role)}
+                      title={cust.role === "admin" ? "Click to Demote to Customer" : "Click to Promote to Admin"}
+                      className={`text-[10px] px-2 py-0.5 uppercase font-semibold transition hover:ring-1 hover:ring-ink inline-flex items-center gap-1 ${
+                        cust.role === "admin" ? "bg-ink text-white" : "bg-gray-100 text-gray-700 border border-gray-200"
+                      }`}
+                    >
+                      <span>{cust.role}</span>
+                      <span className="text-[9px] opacity-70">⇄</span>
+                    </button>
                   </td>
                   <td className="p-4 text-gray-700">{placed.length} order(s)</td>
                   <td className="p-4">
@@ -186,9 +200,21 @@ export const CustomerManager: React.FC = () => {
                   <span className="text-gray-500">Telephone:</span>
                   <span className="text-ink font-medium">{selectedCustomer.phone || "Not recorded"}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-gray-500">Account Role:</span>
-                  <span className="text-ink font-bold uppercase">{selectedCustomer.role}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] px-2 py-0.5 uppercase font-bold ${
+                      selectedCustomer.role === "admin" ? "bg-ink text-white" : "bg-gray-200 text-ink"
+                    }`}>
+                      {selectedCustomer.role}
+                    </span>
+                    <button
+                      onClick={() => handleToggleRole(selectedCustomer.id, selectedCustomer.role)}
+                      className="text-[10px] uppercase font-bold border border-gray-300 px-2 py-0.5 hover:bg-ink hover:text-white transition shadow-2xs"
+                    >
+                      {selectedCustomer.role === "admin" ? "Demote to Customer" : "Promote to Admin"}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Membership Status:</span>

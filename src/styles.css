@@ -11,11 +11,13 @@ html {
   background: #ebe8df;
   font-size: 100%;
   overflow-x: hidden;
+  max-width: 100%;
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  max-width: 100%;
   overflow-x: hidden;
   background: #ebe8df;
   color: #0d0d0d;
@@ -27,6 +29,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-image: linear-gradient(rgba(13, 13, 13, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 13, 13, 0.03) 1px, transparent 1px);
   background-size: 48px 48px;
+}
+
+#root {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 @media (max-width: 640px) {
@@ -46,30 +54,10 @@ select {
   font: inherit;
 }
 
-button {
+button,
+a,
+[role="button"] {
   cursor: pointer;
-}
-
-body.custom-cursor-active,
-body.custom-cursor-active button,
-body.custom-cursor-active a,
-body.custom-cursor-active [role="button"] {
-  cursor: none;
-}
-
-@media (pointer: coarse), (max-width: 768px) {
-  body.custom-cursor-active,
-  body.custom-cursor-active button,
-  body.custom-cursor-active a,
-  body.custom-cursor-active [role="button"] {
-    cursor: auto !important;
-  }
-
-  button,
-  a,
-  [role="button"] {
-    cursor: pointer !important;
-  }
 }
 
 /* Safe area insets for modern mobile notched displays */
@@ -109,13 +97,6 @@ select:focus-visible {
   outline: 2px solid #e78b73;
   outline-offset: 3px;
 }
-
-/* Legible typographic scaling for utility micro-tags */
-.\text-\[8px\], [class*="text-[8px]"] { font-size: 0.75rem !important; line-height: 1.35 !important; }
-.\text-\[9px\], [class*="text-[9px]"] { font-size: 0.75rem !important; line-height: 1.35 !important; }
-.\text-\[10px\], [class*="text-[10px]"] { font-size: 0.8125rem !important; line-height: 1.4 !important; }
-.\text-\[11px\], [class*="text-[11px]"] { font-size: 0.875rem !important; line-height: 1.4 !important; }
-
 .font-editorial {
   letter-spacing: 0.01em;
 }

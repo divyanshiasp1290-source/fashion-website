@@ -1,46 +1,43 @@
-import { ArrowRight, Check, Lock, ShieldAlert, Sparkles, UserPlus } from "lucide-react";
+import { ArrowRight, Lock, LogOut, ShieldAlert } from "lucide-react";
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { isSupabaseConfigured } from "../../lib/supabase";
 import { MaisonMakeevaLogo } from "../MaisonMakeevaLogo";
 
 export const AdminAuthGate: React.FC<{ onBackToStore: () => void }> = ({ onBackToStore }) => {
-  const { login, signUp, quickDemoLogin } = useAuth();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const { user, isAdmin, login, logout } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("Atelier Director");
   const [error, setError] = useState<string | null>(null);
-  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setInfoMsg(null);
     setSubmitting(true);
 
-    if (mode === "login") {
+    try {
       const res = await login(email, password);
       if (!res.success) {
-        if (res.error?.toLowerCase().includes("invalid login credentials")) {
-          setError(
-            "Account not found in Supabase Auth or passcode incorrect. If you haven't registered your Admin account yet, switch to 'Register Admin' below to initialize this account."
-          );
-        } else {
-          setError(res.error || "Invalid administrative credentials.");
-        }
+        setError(res.error || "Invalid administrative credentials.");
+      } else if (res.role !== "admin") {
+        // Customer account attempting to enter admin area
+        await logout();
+        setError(
+          `ACCESS DENIED: The account "${email}" is registered as a Client and does not possess administrator privileges. Only verified Maison Makeeva administrators can access /admin.`
+        );
       }
-    } else {
-      const res = await signUp(email, password, fullName, "admin");
-      if (!res.success) {
-        setError(res.error || "Failed to register administrative user in Supabase.");
-      } else if (res.needsEmailConfirmation) {
-        setInfoMsg(res.error || "Admin account registered! Please check your email inbox to verify your account.");
-      }
+    } catch (err: any) {
+      setError(err?.message || "Authentication verification failed.");
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    setSubmitting(false);
+  const handleSwitchAccount = async () => {
+    await logout();
+    setEmail("");
+    setPassword("");
+    setError(null);
   };
 
   return (
@@ -55,43 +52,41 @@ export const AdminAuthGate: React.FC<{ onBackToStore: () => void }> = ({ onBackT
             Atelier Administration
           </h1>
           <p className="font-sans text-xs text-gray-500">
-            Secure administrative control portal for products, orders, inventory and client dispatches.
+            Secure administrative control portal for products, orders, inventory and client dossiers.
           </p>
         </div>
 
-        {/* Mode Switcher Tabs */}
-        <div className="grid grid-cols-2 gap-2 border border-gray-200 p-1 bg-gray-50 font-mono text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("login");
-              setError(null);
-              setInfoMsg(null);
-            }}
-            className={`py-2 text-center uppercase tracking-wider transition ${
-              mode === "login"
-                ? "bg-ink text-white font-bold shadow-sm"
-                : "text-gray-500 hover:text-ink"
-            }`}
-          >
-            Admin Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("register");
-              setError(null);
-              setInfoMsg(null);
-            }}
-            className={`py-2 text-center uppercase tracking-wider transition ${
-              mode === "register"
-                ? "bg-ink text-white font-bold shadow-sm"
-                : "text-gray-500 hover:text-ink"
-            }`}
-          >
-            Register Admin
-          </button>
-        </div>
+        {/* If user is logged in but not an admin */}
+        {user && !isAdmin && (
+          <div className="border border-amber-200 bg-amber-50 p-4 font-mono text-xs text-amber-900 space-y-3">
+            <div className="flex items-start gap-2">
+              <ShieldAlert size={16} className="shrink-0 text-amber-600 mt-0.5" />
+              <div>
+                <p className="font-bold">Client Account Detected</p>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  Currently signed in as <span className="font-bold">{user.email}</span> (Role: Client). This account does not possess administrator clearance.
+                </p>
+              </div>
+            </div>
+            <div className="pt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={handleSwitchAccount}
+                className="flex-1 bg-ink text-white py-2 px-3 uppercase text-[11px] font-bold hover:bg-gray-800 transition flex items-center justify-center gap-1.5"
+              >
+                <LogOut size={13} />
+                <span>Switch to Admin Account</span>
+              </button>
+              <button
+                type="button"
+                onClick={onBackToStore}
+                className="border border-gray-300 py-2 px-3 uppercase text-[11px] text-gray-700 hover:bg-gray-100 transition"
+              >
+                Return to Store
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="border border-red-200 bg-red-50 p-3.5 text-red-800 font-mono text-xs space-y-2">
@@ -99,48 +94,14 @@ export const AdminAuthGate: React.FC<{ onBackToStore: () => void }> = ({ onBackT
               <ShieldAlert size={16} className="shrink-0 text-red-600 mt-0.5" />
               <span className="leading-relaxed">{error}</span>
             </div>
-            {mode === "login" && error.includes("switch to 'Register Admin'") && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("register");
-                  setError(null);
-                }}
-                className="block text-ink hover:underline text-[11px] font-bold uppercase tracking-wider pt-1"
-              >
-                → Click here to Register {email || "this email"} as Admin
-              </button>
-            )}
           </div>
         )}
 
-        {infoMsg && (
-          <div className="flex items-start gap-2 border border-emerald-200 bg-emerald-50 p-3.5 text-emerald-800 font-mono text-xs leading-relaxed">
-            <Check size={16} className="shrink-0 text-emerald-600 mt-0.5" />
-            <span>{infoMsg}</span>
-          </div>
-        )}
-
+        {/* Admin Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === "register" && (
-            <div>
-              <label className="block font-mono text-[11px] uppercase tracking-wider text-gray-700 font-semibold mb-1">
-                Admin Full Name / Title
-              </label>
-              <input
-                required
-                type="text"
-                placeholder="Atelier Director"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full border-b border-gray-300 bg-transparent py-2.5 font-mono text-xs text-ink outline-none focus:border-ink placeholder:text-gray-400"
-              />
-            </div>
-          )}
-
           <div>
             <label className="block font-mono text-[11px] uppercase tracking-wider text-gray-700 font-semibold mb-1">
-              Admin Identifier / Email
+              Administrator Email
             </label>
             <input
               required
@@ -173,36 +134,17 @@ export const AdminAuthGate: React.FC<{ onBackToStore: () => void }> = ({ onBackT
           >
             {submitting ? (
               <span>Verifying Authorization...</span>
-            ) : mode === "login" ? (
-              <>
-                <span>Enter Administration</span>
-                <ArrowRight size={14} />
-              </>
             ) : (
               <>
-                <span>Create & Initialize Admin Account</span>
-                <UserPlus size={14} />
+                <Lock size={14} />
+                <span>Verify & Enter Administration</span>
+                <ArrowRight size={14} />
               </>
             )}
           </button>
         </form>
 
-        {/* Localhost Direct Dev Bypass */}
-        <div className="pt-4 border-t border-gray-200 space-y-2 text-center">
-          <button
-            type="button"
-            onClick={() => quickDemoLogin("admin")}
-            className="w-full border border-gray-300 bg-gray-50 py-2.5 font-mono text-[11px] uppercase tracking-wider text-ink hover:bg-ink hover:text-white transition font-bold flex items-center justify-center gap-1.5"
-          >
-            <Sparkles size={13} />
-            <span>Instant Admin Access (Localhost Bypass) →</span>
-          </button>
-          <p className="font-mono text-[10px] text-gray-500 leading-relaxed">
-            Instantly opens administration dashboard connected to your Supabase PostgreSQL tables without waiting for email verification.
-          </p>
-        </div>
-
-        <div className="pt-2 text-center">
+        <div className="pt-3 text-center border-t border-gray-100">
           <button
             onClick={onBackToStore}
             className="font-mono text-xs uppercase tracking-wider text-gray-500 hover:text-ink transition underline underline-offset-4"

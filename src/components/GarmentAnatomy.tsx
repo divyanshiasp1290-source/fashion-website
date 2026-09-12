@@ -116,8 +116,6 @@ export function GarmentAnatomy({
                 src={featuredProduct.images[0]}
                 alt={featuredProduct.title}
                 className="h-full w-full object-cover"
-                data-cursor="view"
-                data-cursor-text="DETAIL"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-ink/50 via-transparent to-transparent" />
 

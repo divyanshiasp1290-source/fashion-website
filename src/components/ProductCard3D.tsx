@@ -1,5 +1,5 @@
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { Eye, Heart, Plus, Sparkles } from "lucide-react";
+import { Eye, Heart, Plus, Sparkles, Star } from "lucide-react";
 import React, { useState } from "react";
 import type { Product } from "../data/catalog";
 import { useIsTouchDevice, useReducedMotion } from "../hooks/useReducedMotion";
@@ -69,12 +69,12 @@ export function ProductCard3D({
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0.85, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-20px" }}
-      transition={{ duration: 0.45, delay: Math.min((index % 6) * 0.05, 0.25) }}
+      viewport={{ once: true, margin: "120px" }}
+      transition={{ duration: 0.35, delay: Math.min((index % 4) * 0.04, 0.15) }}
       className={cx(
-        "group relative flex flex-col",
+        "group relative flex flex-col w-full",
         isRunway ? "w-[280px] sm:w-[320px] shrink-0" : "w-full"
       )}
     >
@@ -86,8 +86,6 @@ export function ProductCard3D({
           onPointerMove={handlePointerMove}
           onPointerLeave={handlePointerLeave}
           onClick={() => onSelect(product)}
-          data-cursor="view"
-          data-cursor-text="VIEW"
         >
           <motion.div
             style={{
@@ -129,19 +127,23 @@ export function ProductCard3D({
             />
           )}
 
-          {/* Archive Badge */}
-          {product.badge && (
-            <div className="absolute left-3 top-3 z-10">
-              <span className="flex items-center gap-1.5 bg-ink px-2.5 py-1 font-mono text-xs uppercase tracking-[0.18em] text-white shadow-md border border-white/10 font-semibold">
-                <Sparkles size={11} className="text-chartreuse" />
-                {product.badge}
+          {/* Archive / Featured Badge */}
+          {(product.badge || product.featured) && (
+            <div className="absolute left-2.5 sm:left-3 top-2.5 sm:top-3 z-10 max-w-[62%]">
+              <span className="inline-flex items-center gap-1.5 bg-ink px-2 sm:px-2.5 py-1 font-mono text-[10px] sm:text-xs uppercase tracking-[0.12em] sm:tracking-[0.16em] text-white shadow-md border border-white/10 font-semibold whitespace-nowrap">
+                {product.featured ? (
+                  <Star size={11} className="text-chartreuse fill-chartreuse shrink-0" />
+                ) : (
+                  <Sparkles size={11} className="text-chartreuse shrink-0" />
+                )}
+                <span className="truncate">{product.badge || "FEATURED"}</span>
               </span>
             </div>
           )}
 
           {/* Archival Edition Number */}
-          <div className="absolute right-3 top-3 z-10">
-            <span className="bg-ink/75 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm font-medium">
+          <div className="absolute right-2.5 sm:right-3 top-2.5 sm:top-3 z-10">
+            <span className="bg-ink/80 px-2 py-0.5 font-mono text-[10px] sm:text-xs uppercase tracking-[0.12em] sm:tracking-[0.14em] text-white/90 backdrop-blur-sm font-medium whitespace-nowrap">
               0{index + 1} // SS26
             </span>
           </div>
@@ -154,7 +156,6 @@ export function ProductCard3D({
             }}
             className="absolute right-3 bottom-3 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-ink/80 text-white backdrop-blur-md transition hover:bg-black hover:scale-110 active:scale-95 hover:border hover:border-chartreuse"
             aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
-            data-magnetic="0.25"
           >
             <Heart
               size={14}
@@ -162,23 +163,6 @@ export function ProductCard3D({
               className={wished ? "text-chartreuse fill-chartreuse" : ""}
             />
           </button>
-
-          {/* Curator Quick View Inspection: Visible on touch/mobile and on desktop hover */}
-          <div className="absolute left-3 bottom-3 z-20 flex items-center justify-start opacity-100 md:opacity-0 transition-opacity duration-250 md:group-hover:opacity-100">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCuratorInspect(product);
-              }}
-              className="flex items-center gap-1 bg-ink/85 px-2.5 py-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-white shadow-lg backdrop-blur-md transition hover:bg-black hover:text-chartreuse border border-white/20 active:scale-95"
-              data-magnetic="0.2"
-              title="Inspect 3D Specimen"
-              aria-label="Inspect 3D Specimen"
-            >
-              <Eye size={13} className="text-chartreuse" />
-              <span className="hidden xs:inline sm:inline">Curator</span>
-            </button>
-          </div>
         </div>
 
         {/* Clear, High-Readability Product Meta and Buying Controls */}

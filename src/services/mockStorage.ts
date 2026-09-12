@@ -364,7 +364,7 @@ const INITIAL_PRODUCTS: DbProduct[] = [
     new_arrival: false,
     status: "active",
     images: [
-      { id: "img-12-1", product_id: "prod-12", image_url: "https://www.maisonmakeeva.com/cdn/shop/files/RebelBlack_1024x1024_crop_center.jpg?v=1717758768", sort_order: 0, alt_text: "Archival 450 GSM Hoodie Front" },
+      { id: "img-12-1", product_id: "prod-12", image_url: "https://www.maisonmakeeva.com/cdn/shop/files/D59A9997_8517fa4c-8149-4287-9bae-edb77c7a48af_2048x.jpg?v=1763735833", sort_order: 0, alt_text: "Archival 450 GSM Hoodie Front" },
     ],
   },
   {
@@ -417,20 +417,37 @@ const INITIAL_PRODUCTS: DbProduct[] = [
 const INITIAL_INVENTORY: DbInventory[] = [
   { id: "inv-1", product_id: "prod-1", size: "S", color: "Washed indigo", stock_quantity: 12, low_stock_threshold: 5 },
   { id: "inv-2", product_id: "prod-1", size: "M", color: "Washed indigo", stock_quantity: 18, low_stock_threshold: 5 },
-  { id: "inv-3", product_id: "prod-1", size: "L", color: "Washed indigo", stock_quantity: 3, low_stock_threshold: 5 }, // Low stock
-  { id: "inv-4", product_id: "prod-1", size: "XL", color: "Washed indigo", stock_quantity: 2, low_stock_threshold: 5 }, // Low stock
+  { id: "inv-3", product_id: "prod-1", size: "L", color: "Washed indigo", stock_quantity: 3, low_stock_threshold: 5 },
+  { id: "inv-4", product_id: "prod-1", size: "XL", color: "Washed indigo", stock_quantity: 2, low_stock_threshold: 5 },
   { id: "inv-5", product_id: "prod-2", size: "S", color: "Graphite", stock_quantity: 15, low_stock_threshold: 5 },
   { id: "inv-6", product_id: "prod-2", size: "M", color: "Graphite", stock_quantity: 24, low_stock_threshold: 5 },
   { id: "inv-7", product_id: "prod-2", size: "L", color: "Graphite", stock_quantity: 14, low_stock_threshold: 5 },
-  { id: "inv-8", product_id: "prod-3", size: "M", color: "Deep bleach", stock_quantity: 16, low_stock_threshold: 5 },
-  { id: "inv-9", product_id: "prod-3", size: "L", color: "Deep bleach", stock_quantity: 4, low_stock_threshold: 5 }, // Low stock
-  { id: "inv-10", product_id: "prod-4", size: "M", color: "Noir velvet", stock_quantity: 9, low_stock_threshold: 3 },
-  { id: "inv-11", product_id: "prod-6", size: "M", color: "Monogram noir", stock_quantity: 12, low_stock_threshold: 4 },
-  { id: "inv-12", product_id: "prod-8", size: "OS", color: "Noir", stock_quantity: 6, low_stock_threshold: 2 },
-  { id: "inv-13", product_id: "prod-10", size: "M", color: "Washed Indigo", stock_quantity: 8, low_stock_threshold: 3 },
-  { id: "inv-14", product_id: "prod-11", size: "S", color: "Noir", stock_quantity: 7, low_stock_threshold: 3 },
-  { id: "inv-15", product_id: "prod-12", size: "L", color: "Rebel Black", stock_quantity: 11, low_stock_threshold: 4 },
-  { id: "inv-16", product_id: "prod-14", size: "EU 42", color: "Matte Noir", stock_quantity: 15, low_stock_threshold: 5 },
+  { id: "inv-8", product_id: "prod-3", size: "S", color: "Deep bleach", stock_quantity: 10, low_stock_threshold: 5 },
+  { id: "inv-9", product_id: "prod-3", size: "M", color: "Deep bleach", stock_quantity: 16, low_stock_threshold: 5 },
+  { id: "inv-10", product_id: "prod-3", size: "L", color: "Deep bleach", stock_quantity: 4, low_stock_threshold: 5 },
+  { id: "inv-11", product_id: "prod-3", size: "XL", color: "Deep bleach", stock_quantity: 8, low_stock_threshold: 5 },
+  { id: "inv-12", product_id: "prod-4", size: "S", color: "Noir velvet", stock_quantity: 6, low_stock_threshold: 3 },
+  { id: "inv-13", product_id: "prod-4", size: "M", color: "Noir velvet", stock_quantity: 9, low_stock_threshold: 3 },
+  { id: "inv-14", product_id: "prod-4", size: "L", color: "Noir velvet", stock_quantity: 7, low_stock_threshold: 3 },
+  { id: "inv-15", product_id: "prod-4", size: "XL", color: "Noir velvet", stock_quantity: 5, low_stock_threshold: 3 },
+  { id: "inv-16", product_id: "prod-6", size: "S", color: "Monogram noir", stock_quantity: 8, low_stock_threshold: 4 },
+  { id: "inv-17", product_id: "prod-6", size: "M", color: "Monogram noir", stock_quantity: 12, low_stock_threshold: 4 },
+  { id: "inv-18", product_id: "prod-6", size: "L", color: "Monogram noir", stock_quantity: 10, low_stock_threshold: 4 },
+  { id: "inv-19", product_id: "prod-6", size: "XL", color: "Monogram noir", stock_quantity: 4, low_stock_threshold: 4 },
+  { id: "inv-20", product_id: "prod-8", size: "OS", color: "Noir", stock_quantity: 6, low_stock_threshold: 2 },
+  { id: "inv-21", product_id: "prod-10", size: "S", color: "Washed Indigo", stock_quantity: 5, low_stock_threshold: 3 },
+  { id: "inv-22", product_id: "prod-10", size: "M", color: "Washed Indigo", stock_quantity: 8, low_stock_threshold: 3 },
+  { id: "inv-23", product_id: "prod-10", size: "L", color: "Washed Indigo", stock_quantity: 11, low_stock_threshold: 3 },
+  { id: "inv-24", product_id: "prod-10", size: "XL", color: "Washed Indigo", stock_quantity: 4, low_stock_threshold: 3 },
+  { id: "inv-25", product_id: "prod-11", size: "XS", color: "Noir", stock_quantity: 4, low_stock_threshold: 3 },
+  { id: "inv-26", product_id: "prod-11", size: "S", color: "Noir", stock_quantity: 7, low_stock_threshold: 3 },
+  { id: "inv-27", product_id: "prod-11", size: "M", color: "Noir", stock_quantity: 9, low_stock_threshold: 3 },
+  { id: "inv-28", product_id: "prod-11", size: "L", color: "Noir", stock_quantity: 5, low_stock_threshold: 3 },
+  { id: "inv-29", product_id: "prod-12", size: "S", color: "Rebel Black", stock_quantity: 6, low_stock_threshold: 4 },
+  { id: "inv-30", product_id: "prod-12", size: "M", color: "Rebel Black", stock_quantity: 14, low_stock_threshold: 4 },
+  { id: "inv-31", product_id: "prod-12", size: "L", color: "Rebel Black", stock_quantity: 11, low_stock_threshold: 4 },
+  { id: "inv-32", product_id: "prod-12", size: "XL", color: "Rebel Black", stock_quantity: 8, low_stock_threshold: 4 },
+  { id: "inv-33", product_id: "prod-14", size: "EU 42", color: "Matte Noir", stock_quantity: 15, low_stock_threshold: 5 },
 ];
 
 // Initial Seed Orders
@@ -616,35 +633,39 @@ class MockStorageManager {
     this.init();
     const list = this.getItem<DbProduct[]>(STORAGE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
     const id = product.id || `prod-${Date.now()}`;
-    const slug = product.slug || (product.name ? product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : `product-${id}`);
-    const sku = product.sku || `MM-PROD-${Math.floor(1000 + Math.random() * 9000)}`;
+    const existingIndex = list.findIndex((p) => p.id === id);
+    const existing = existingIndex >= 0 ? list[existingIndex] : undefined;
+
+    const slug = product.slug || (product.name ? product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : (existing?.slug || `product-${id}`));
+    const sku = product.sku || existing?.sku || `MM-PROD-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const fullProduct: DbProduct = {
+      ...(existing || {}),
+      ...product,
       id,
-      name: product.name || "Untitled Silhouette",
+      name: product.name ?? existing?.name ?? "Untitled Silhouette",
       slug,
       sku,
-      description: product.description || "",
-      short_description: product.short_description || "",
-      story: product.story || "",
-      price: Number(product.price) || 0,
-      compare_at_price: product.compare_at_price ? Number(product.compare_at_price) : null,
-      gender: product.gender || "Unisex",
-      category_id: product.category_id || null,
-      subcategory_id: product.subcategory_id || null,
-      collection_id: product.collection_id || null,
-      badge: product.badge || null,
-      materials: product.materials || ["Heavy Cotton"],
-      tags: product.tags || [],
-      featured: Boolean(product.featured),
-      new_arrival: Boolean(product.new_arrival),
-      status: product.status || "active",
-      images: product.images || [],
-      created_at: product.created_at || new Date().toISOString(),
+      description: product.description ?? existing?.description ?? "",
+      short_description: product.short_description ?? existing?.short_description ?? "",
+      story: product.story ?? existing?.story ?? "",
+      price: product.price !== undefined ? Number(product.price) : (existing?.price ?? 0),
+      compare_at_price: product.compare_at_price !== undefined ? (product.compare_at_price ? Number(product.compare_at_price) : null) : (existing?.compare_at_price ?? null),
+      gender: product.gender ?? existing?.gender ?? "Unisex",
+      category_id: product.category_id !== undefined ? product.category_id : (existing?.category_id ?? null),
+      subcategory_id: product.subcategory_id !== undefined ? product.subcategory_id : (existing?.subcategory_id ?? null),
+      collection_id: product.collection_id !== undefined ? product.collection_id : (existing?.collection_id ?? null),
+      badge: product.badge !== undefined ? product.badge : (existing?.badge ?? null),
+      materials: product.materials ?? existing?.materials ?? ["Heavy Cotton"],
+      tags: product.tags ?? existing?.tags ?? [],
+      featured: product.featured !== undefined ? Boolean(product.featured) : (existing?.featured ?? false),
+      new_arrival: product.new_arrival !== undefined ? Boolean(product.new_arrival) : (existing?.new_arrival ?? false),
+      status: product.status ?? existing?.status ?? "active",
+      images: product.images ?? existing?.images ?? [],
+      created_at: existing?.created_at || product.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    const existingIndex = list.findIndex((p) => p.id === id);
     if (existingIndex >= 0) {
       list[existingIndex] = fullProduct;
     } else {
@@ -686,7 +707,7 @@ class MockStorageManager {
       created_at: cat.created_at || new Date().toISOString(),
     };
 
-    const idx = list.findIndex((c) => c.id === id);
+    const idx = list.findIndex((c) => c.id === id || (slug && c.slug === slug));
     if (idx >= 0) {
       list[idx] = fullCat;
     } else {
@@ -701,6 +722,23 @@ class MockStorageManager {
     const list = this.getCategories();
     // remove category and children
     this.setItem(STORAGE_KEYS.CATEGORIES, list.filter((c) => c.id !== id && c.parent_id !== id));
+    // safely unlink products referencing this category or its subcategories
+    const prods = this.getProducts();
+    const updatedProds = prods.map((p) => {
+      let changed = false;
+      let newCat = p.category_id;
+      let newSubcat = p.subcategory_id;
+      if (p.category_id === id) {
+        newCat = null;
+        changed = true;
+      }
+      if (p.subcategory_id === id) {
+        newSubcat = null;
+        changed = true;
+      }
+      return changed ? { ...p, category_id: newCat, subcategory_id: newSubcat } : p;
+    });
+    this.setItem(STORAGE_KEYS.PRODUCTS, updatedProds);
   }
 
   // --- COLLECTIONS ---
@@ -713,20 +751,24 @@ class MockStorageManager {
     this.init();
     const list = this.getCollections();
     const id = col.id || `col-${Date.now()}`;
-    const slug = col.slug || (col.name ? col.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : id);
+    const idx = list.findIndex((c) => c.id === id);
+    const existing = idx >= 0 ? list[idx] : undefined;
+
+    const slug = col.slug || (col.name ? col.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : (existing?.slug || id));
 
     const fullCol: DbCollection = {
+      ...(existing || {}),
+      ...col,
       id,
-      name: col.name || "New Collection",
+      name: col.name ?? existing?.name ?? "New Collection",
       slug,
-      season: col.season || "SS26",
-      description: col.description || "",
-      image: col.image || "https://www.maisonmakeeva.com/cdn/shop/files/D59A9986_2048x.jpg?v=1763735666",
-      status: col.status || "active",
-      created_at: col.created_at || new Date().toISOString(),
+      season: col.season ?? existing?.season ?? "SS26",
+      description: col.description ?? existing?.description ?? "",
+      image: col.image ?? existing?.image ?? "https://www.maisonmakeeva.com/cdn/shop/files/D59A9986_2048x.jpg?v=1763735666",
+      status: col.status ?? existing?.status ?? "active",
+      created_at: existing?.created_at || col.created_at || new Date().toISOString(),
     };
 
-    const idx = list.findIndex((c) => c.id === id);
     if (idx >= 0) {
       list[idx] = fullCol;
     } else {
@@ -739,7 +781,12 @@ class MockStorageManager {
   public deleteCollection(id: string): void {
     this.init();
     const list = this.getCollections();
-    this.setItem(STORAGE_KEYS.COLLECTIONS, list.filter((c) => c.id !== id));
+    this.setItem(STORAGE_KEYS.COLLECTIONS, list.filter((c) => c.id !== id && c.slug !== id));
+    // Safely unlink products assigned to this collection
+    const products = this.getProducts().map((p) =>
+      p.collection_id === id ? { ...p, collection_id: null } : p
+    );
+    this.setItem(STORAGE_KEYS.PRODUCTS, products);
   }
 
   // --- INVENTORY ---
@@ -828,10 +875,55 @@ class MockStorageManager {
     return null;
   }
 
+  public deleteOrder(id: string): void {
+    this.init();
+    const list = this.getOrders();
+    this.setItem(STORAGE_KEYS.ORDERS, list.filter((o) => o.id !== id));
+  }
+
   // --- CUSTOMERS ---
   public getCustomers(): DbCustomer[] {
     this.init();
-    return this.getItem(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
+    const list = this.getItem(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
+    // Ensure divyanshiasp1290 is strictly customer role
+    let modified = false;
+    for (const c of list) {
+      if (c.email.toLowerCase() === "divyanshiasp1290@gmail.com" && c.role === "admin") {
+        c.role = "customer";
+        modified = true;
+      }
+    }
+    if (modified) {
+      this.setItem(STORAGE_KEYS.CUSTOMERS, list);
+    }
+    return list;
+  }
+
+  public createOrUpdateCustomer(cust: DbCustomer): DbCustomer {
+    this.init();
+    const list = this.getCustomers();
+    const idx = list.findIndex((c) => c.id === cust.id || c.email.toLowerCase() === cust.email.toLowerCase());
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...cust };
+      this.setItem(STORAGE_KEYS.CUSTOMERS, list);
+      return list[idx];
+    } else {
+      list.unshift(cust);
+      this.setItem(STORAGE_KEYS.CUSTOMERS, list);
+      return cust;
+    }
+  }
+
+  public updateCustomerRole(id: string, role: "admin" | "customer"): DbCustomer | null {
+    this.init();
+    const list = this.getCustomers();
+    const idx = list.findIndex((c) => c.id === id);
+    if (idx >= 0) {
+      list[idx].role = role;
+      this.setItem(STORAGE_KEYS.CUSTOMERS, list);
+      return list[idx];
+    }
+    return null;
   }
 
   public toggleCustomerStatus(id: string): DbCustomer | null {
@@ -874,6 +966,12 @@ class MockStorageManager {
       list[idx].status = status;
       this.setItem(STORAGE_KEYS.CONTACT, list);
     }
+  }
+
+  public deleteContactMessage(id: string): void {
+    this.init();
+    const list = this.getContactMessages();
+    this.setItem(STORAGE_KEYS.CONTACT, list.filter((m) => m.id !== id));
   }
 
   // --- NEWSLETTER ---

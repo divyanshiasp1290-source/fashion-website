@@ -127,8 +127,6 @@ export function SignatureHero({ go }: { go: (page: Page) => void }) {
               onClick={() => go("collection")}
               data-magnetic="0.3"
               className="group inline-flex items-center justify-center gap-3 bg-chartreuse px-6 py-3 sm:px-8 sm:py-3.5 font-mono text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-ink transition duration-200 hover:bg-white hover:shadow-2xl active:scale-[0.98] w-fit min-h-[42px] sm:min-h-[44px]"
-              data-cursor="view"
-              data-cursor-text="SHOP"
             >
               <span>Explore Collection</span>
               <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />

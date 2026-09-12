@@ -27,21 +27,20 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CuratorModal } from "./components/CuratorModal";
 import { GlobalAtelierScene3D } from "./components/HeroScene3D";
-import { MagneticCursor } from "./components/MagneticCursor";
 import { ProductCard3D } from "./components/ProductCard3D";
 import { ResnBrandIntro } from "./components/ResnBrandIntro";
 import { RunwayLookbook } from "./components/RunwayLookbook";
 import { ScrollReveal, ScrollDriven3D, refreshScrollTriggers } from "./components/ScrollAnimations";
 import { SignatureHero } from "./components/SignatureHero";
-import { collections, policies, products as staticProducts, categoryStructure, navGroups, archiveSections, type ArchiveSection, type Collection, type Product } from "./data/catalog";
+import { collections as staticCollections, policies, products as staticProducts, categoryStructure, navGroups, archiveSections, type ArchiveSection, type Collection, type Product } from "./data/catalog";
 import { cx, formatMoney, getPrimaryProduct } from "./utils";
 import { AdminPanel } from "./components/admin/AdminPanel";
 import { CheckoutModal } from "./components/CheckoutModal";
 import { MaisonMakeevaLogo } from "./components/MaisonMakeevaLogo";
 import { useAuth } from "./context/AuthContext";
 import { api } from "./services/api";
-import { mapDbProductToCatalogProduct } from "./utils/catalogAdapter";
-import type { DbOrder } from "./types/database";
+import { mapDbCollectionToCatalogCollection, mapDbProductToCatalogProduct } from "./utils/catalogAdapter";
+import type { DbCategory, DbOrder } from "./types/database";
 
 type Page = "home" | "collection" | "product" | "lookbook" | "about" | "contact" | "search" | "wishlist" | "account" | "cart" | "admin";
 
@@ -98,12 +97,19 @@ const shopifyMenuMap = Object.fromEntries(shopifyMenus.map((menu) => [menu.label
 const easeOutExpo = [0.16, 1, 0.3, 1] as const;
 
 const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 34 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.8, ease: easeOutExpo } },
+  hidden: { opacity: 0.85, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easeOutExpo } },
 };
 
 export default function App() {
   const [catalogProducts, setCatalogProducts] = useState<Product[]>(staticProducts);
+  const [siteCollections, setSiteCollections] = useState<Collection[]>(() => {
+    return staticCollections.map((c) => ({
+      ...c,
+      status: "active" as const,
+    }));
+  });
+  const [siteCategories, setSiteCategories] = useState<DbCategory[]>([]);
   const [introVisible, setIntroVisible] = useState(true);
   const [page, setPage] = useState<Page>("home");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -175,20 +181,105 @@ export default function App() {
           api.getCategories(),
           api.getCollections(),
         ]);
-        if (isMounted && dbProds && dbProds.length > 0) {
-          const mapped = dbProds.map((db) => mapDbProductToCatalogProduct(db, dbCats, dbCols));
-          setCatalogProducts(mapped);
-          setSelectedProduct((prev) => mapped.find((m) => m.id === prev.id) || mapped[0] || prev);
+        if (isMounted) {
+          if (dbCats && dbCats.length > 0) {
+            setSiteCategories(dbCats);
+          }
+          if (dbProds && dbProds.length > 0) {
+            const mapped = dbProds.map((db) => mapDbProductToCatalogProduct(db, dbCats, dbCols));
+            setCatalogProducts(mapped);
+            setSelectedProduct((prev) => mapped.find((m) => m.id === prev.id) || mapped[0] || prev);
+          }
+          if (dbCols && dbCols.length > 0) {
+            const mappedCols = dbCols.map((c) => mapDbCollectionToCatalogCollection(c, dbProds || []));
+            setSiteCollections(mappedCols);
+          }
         }
       } catch (err) {
         console.warn("Dynamic catalog fetch fallback to static catalog:", err);
       }
     }
     loadDynamicCatalog();
+
+    // Multi-tab and real-time synchronization
+    const handleSync = () => {
+      loadDynamicCatalog();
+    };
+
+    window.addEventListener("focus", handleSync);
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("mm-catalog-sync", handleSync);
+
+    const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("mm-catalog-sync") : null;
+    if (bc) {
+      bc.onmessage = () => {
+        handleSync();
+      };
+    }
+
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", handleSync);
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("mm-catalog-sync", handleSync);
+      if (bc) {
+        bc.close();
+      }
     };
   }, [page]);
+
+  // Public collections: filter out inactive collections (Requirement 5 & 6)
+  const activeCollections = useMemo(() => {
+    return siteCollections.filter((c) => c.status !== "inactive");
+  }, [siteCollections]);
+
+  // Public categories: filter out inactive categories
+  const activeDbCategories = useMemo(() => {
+    return siteCategories.filter((c) => c.status !== "inactive");
+  }, [siteCategories]);
+
+  // Active Main Categories (top-level, parent_id === null)
+  const activeMainCategories = useMemo(() => {
+    if (activeDbCategories.length === 0) return [];
+    return activeDbCategories
+      .filter((c) => !c.parent_id)
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }, [activeDbCategories]);
+
+  // Dynamic Navigation Groups (mapping each main category name to array of subcategory names)
+  const dynamicNavGroups = useMemo<Record<string, string[]>>(() => {
+    const groups: Record<string, string[]> = { ...navGroups };
+
+    if (activeDbCategories.length > 0) {
+      activeMainCategories.forEach((mainCat) => {
+        const dbSubs = activeDbCategories
+          .filter((c) => c.parent_id === mainCat.id)
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((c) => c.name);
+
+        const staticSubs = groups[mainCat.name] || [];
+        const combined = Array.from(new Set([...dbSubs, ...staticSubs]));
+        groups[mainCat.name] = combined;
+      });
+    }
+    return groups;
+  }, [activeDbCategories, activeMainCategories]);
+
+  // Dynamic Menus for Desktop Navbar & Mobile Navigation
+  const dynamicShopifyMenus = useMemo<ShopMenu[]>(() => {
+    if (activeMainCategories.length === 0) {
+      return shopifyMenus;
+    }
+
+    return activeMainCategories.map((mainCat) => {
+      const existing = shopifyMenuMap[mainCat.name];
+      return {
+        label: mainCat.name,
+        page: mainCat.name === "Archives" ? "lookbook" : "collection",
+        hero: mainCat.description || existing?.hero || `${mainCat.name} Atelier Collection`,
+      };
+    });
+  }, [activeMainCategories]);
 
   const go = (next: Page, product?: Product, category?: string, subCategory?: string) => {
     if (product) setSelectedProduct(product);
@@ -249,6 +340,7 @@ export default function App() {
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
         products={catalogProducts}
+        collections={activeCollections}
       />
     ),
     collection: (
@@ -261,6 +353,8 @@ export default function App() {
         initialCategory={activeCategory}
         initialSubCategory={activeSubCategory}
         products={catalogProducts}
+        categories={activeMainCategories}
+        navGroups={dynamicNavGroups}
       />
     ),
     product: (
@@ -280,6 +374,7 @@ export default function App() {
         addToCart={addToCart}
         onCuratorInspect={(prod) => setCuratorProduct(prod)}
         activeSection={activeSubCategory}
+        collections={activeCollections}
       />
     ),
     about: <AboutPage go={go} />,
@@ -300,12 +395,9 @@ export default function App() {
   }[page];
 
   return (
-    <div className="relative min-h-screen bg-bone text-ink selection:bg-chartreuse selection:text-ink cursor-default">
+    <div className="relative min-h-screen bg-bone text-ink selection:bg-chartreuse selection:text-ink cursor-default overflow-x-hidden w-full max-w-full">
       {/* Global 3D Fabric Simulation, 3D Camera, Dynamic Lighting & Parallax Background */}
       <GlobalAtelierScene3D className="fixed inset-0 pointer-events-none z-[2]" />
-
-      {/* Cuberto-Style Magnetic Fluid Custom Cursor */}
-      <MagneticCursor />
 
       <Navigation
         page={page}
@@ -315,6 +407,8 @@ export default function App() {
         onMenu={() => setMenuOpen(true)}
         onSearch={() => setSearchOpen(true)}
         onCart={() => go("cart")}
+        menus={dynamicShopifyMenus}
+        navGroups={dynamicNavGroups}
       />
 
       <AnimatePresence mode="wait">
@@ -331,7 +425,14 @@ export default function App() {
       </AnimatePresence>
 
       <Footer go={go} />
-      <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} go={go} />
+      <MobileMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        go={go}
+        menus={dynamicShopifyMenus}
+        navGroups={dynamicNavGroups}
+        mainCategories={activeMainCategories}
+      />
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} go={go} products={catalogProducts} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} go={go} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />
 
@@ -371,6 +472,8 @@ function Navigation({
   onMenu,
   onSearch,
   onCart,
+  menus = shopifyMenus,
+  navGroups: activeNavGroups = navGroups,
 }: {
   page: Page;
   go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
@@ -379,23 +482,27 @@ function Navigation({
   onMenu: () => void;
   onSearch: () => void;
   onCart: () => void;
+  menus?: ShopMenu[];
+  navGroups?: Record<string, string[]>;
 }) {
   const [mega, setMega] = useState<ShopMenu["label"] | null>(null);
 
   return (
     <header className="fixed inset-x-0 top-0 z-50">
       {/* Top Archival Runway Ticker Strip */}
-      <div className="border-b border-white/15 bg-black text-white">
-        <div className="mx-auto flex h-8 sm:h-9 max-w-[1600px] items-center justify-between gap-2 px-3 font-mono text-xs uppercase tracking-[0.14em] sm:tracking-[0.22em] sm:px-8">
-          <div className="flex items-center gap-2 truncate">
+      <div className="border-b border-white/15 bg-black text-white overflow-hidden">
+        <div className="mx-auto flex h-7 sm:h-9 max-w-[1600px] items-center justify-between gap-2 px-2.5 sm:px-8 font-mono text-[10px] sm:text-xs uppercase tracking-[0.06em] sm:tracking-[0.22em]">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 truncate">
             <span className="h-1.5 w-1.5 rounded-full bg-chartreuse animate-pulse shrink-0" />
-            <span className="truncate text-white/90 font-medium">MAISON MAKEEVA // SS26 ATELIER</span>
+            <span className="truncate text-white/90 font-medium">
+              <span className="hidden sm:inline">MAISON MAKEEVA // </span>SS26 ATELIER
+            </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => go("collection", undefined, "New Arrivals", "All")}
-              className="font-mono text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] text-chartreuse hover:underline font-semibold"
+              className="font-mono text-[10px] sm:text-xs uppercase tracking-[0.06em] sm:tracking-[0.2em] text-chartreuse hover:underline font-semibold whitespace-nowrap"
             >
               Exhibition Catalog →
             </button>
@@ -405,7 +512,7 @@ function Navigation({
 
       {/* Main Glassmorphic Navigation Bar */}
       <div className="border-b border-white/10 bg-black/95 text-white backdrop-blur-xl">
-        <div className="mx-auto flex h-14 sm:h-16 max-w-[1600px] items-center justify-between px-3 sm:px-8 gap-2">
+        <div className="mx-auto flex h-14 sm:h-16 max-w-[1600px] items-center justify-between px-2.5 sm:px-8 gap-2">
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <IconButton label="Search" onClick={onSearch}>
               <Search size={18} />
@@ -414,16 +521,16 @@ function Navigation({
 
           <button
             onClick={() => go("home")}
-            className="flex items-center gap-2 sm:gap-3 group text-center min-w-0"
+            className="flex items-center gap-1.5 sm:gap-3 group text-center shrink-0 min-w-0"
             aria-label="Maison Makeeva Home"
           >
-            <MaisonMakeevaLogo className="h-5 sm:h-7 w-auto text-white group-hover:text-chartreuse transition-colors shrink-0" />
-            <span className="font-display text-sm sm:text-2xl uppercase font-bold tracking-[0.08em] sm:tracking-[0.18em] transition-transform group-hover:scale-[1.02] text-white truncate">
+            <MaisonMakeevaLogo className="h-5 w-5 sm:h-7 sm:w-7 shrink-0 text-white group-hover:text-chartreuse transition-colors" />
+            <span className="font-display text-xs xs:text-sm sm:text-2xl uppercase font-bold tracking-[0.04em] sm:tracking-[0.18em] transition-transform group-hover:scale-[1.02] text-white whitespace-nowrap">
               Maison Makeeva
             </span>
           </button>
 
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <div className="hidden lg:flex items-center gap-1 sm:gap-2">
               <IconButton label="Account" onClick={() => go("account")}>
                 <User size={18} />
@@ -436,17 +543,17 @@ function Navigation({
 
             <button
               onClick={onCart}
-              className="relative flex items-center gap-1.5 border border-white/30 px-2 sm:px-3.5 py-1.5 font-mono text-xs uppercase tracking-wider text-white transition hover:border-chartreuse hover:text-chartreuse hover:bg-white/5"
+              className="relative flex items-center gap-1.5 border border-white/30 px-2 sm:px-3.5 py-1.5 font-mono text-xs uppercase tracking-wider text-white transition hover:border-chartreuse hover:text-chartreuse hover:bg-white/5 shrink-0"
               aria-label="Open cart bag"
             >
               <ShoppingBag size={15} />
               <span className="hidden sm:inline">Bag</span>
-              <span className="flex h-4 min-w-4 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-chartreuse px-1 text-[11px] sm:text-xs font-bold text-ink">
+              <span className="flex h-4 min-w-4 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-chartreuse px-1 text-[10px] sm:text-xs font-bold text-ink">
                 {cartCount}
               </span>
             </button>
 
-            <button className="lg:hidden p-1.5 text-white hover:text-chartreuse" onClick={onMenu} aria-label="Open menu">
+            <button className="lg:hidden p-1.5 text-white hover:text-chartreuse shrink-0" onClick={onMenu} aria-label="Open menu">
               <Menu size={20} />
             </button>
           </div>
@@ -456,8 +563,8 @@ function Navigation({
       {/* Desktop Curated Mega-Menu Links */}
       <div className="hidden lg:block border-b border-white/15 bg-black text-white">
         <div className="mx-auto flex h-11 max-w-[1600px] items-center justify-center gap-9 px-4 font-mono text-xs uppercase tracking-[0.22em]">
-          {shopifyMenus.map((menu) => {
-            const hasSubs = (navGroups[menu.label]?.length ?? 0) > 0;
+          {menus.map((menu) => {
+            const hasSubs = (activeNavGroups[menu.label]?.length ?? 0) > 0;
             return (
               <button
                 key={menu.label}
@@ -487,7 +594,7 @@ function Navigation({
 
       {/* Mega Menu Dropdown */}
       <AnimatePresence>
-        {mega && (navGroups[mega]?.length ?? 0) > 0 && (
+        {mega && (activeNavGroups[mega]?.length ?? 0) > 0 && (
           <motion.div
             onMouseLeave={() => setMega(null)}
             initial={{ opacity: 0, y: -8 }}
@@ -500,7 +607,7 @@ function Navigation({
               <div>
                 <div className="flex items-center justify-between mb-5">
                   <p className="font-mono text-xs font-semibold uppercase tracking-wideLuxury text-chartreuse">
-                    {mega} — Sub Categories ({navGroups[mega].length})
+                    {mega} — Sub Categories ({activeNavGroups[mega].length})
                   </p>
                   <button
                     onClick={() => {
@@ -518,7 +625,7 @@ function Navigation({
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                  {navGroups[mega].map((item) => (
+                  {activeNavGroups[mega].map((item) => (
                     <button
                       key={item}
                       onClick={() => {
@@ -544,7 +651,7 @@ function Navigation({
                 <div>
                   <span className="font-mono text-xs uppercase tracking-wider text-taupe font-semibold">Atelier Spotlight</span>
                   <h4 className="mt-2 font-display text-2xl uppercase font-bold leading-tight text-ink">
-                    {shopifyMenuMap[mega]?.hero || mega}
+                    {menus.find((m) => m.label === mega)?.hero || mega}
                   </h4>
                   <p className="mt-3 font-sans text-xs text-graphite/90 leading-relaxed">
                     Crafted with cultural memory, architectural drape, and tactile density. Explore our curated {mega.toLowerCase()} catalog.
@@ -556,7 +663,7 @@ function Navigation({
                     if (mega === "Archives") {
                       go("lookbook", undefined, "Archives", "Lookbooks");
                     } else {
-                      go(shopifyMenuMap[mega]?.page || "collection", undefined, mega, "All");
+                      go(menus.find((m) => m.label === mega)?.page || "collection", undefined, mega, "All");
                     }
                   }}
                   className="mt-6 flex items-center justify-between border-t border-ink/20 pt-3 font-mono text-xs uppercase tracking-[0.18em] font-semibold transition hover:text-chartreuse text-ink"
@@ -628,6 +735,7 @@ function HomePage({
   addToCart,
   onCuratorInspect,
   products = staticProducts,
+  collections = [],
 }: {
   go: (page: Page, product?: Product, category?: string) => void;
   wishlist: string[];
@@ -637,7 +745,31 @@ function HomePage({
   activeCategory?: string;
   setActiveCategory?: (cat: string) => void;
   products?: Product[];
+  collections?: Collection[];
 }) {
+  // Dynamically curate items marked as New Arrival (by Admin toggle, badge, or tag)
+  const newArrivalItems = useMemo(() => {
+    const markedNew = products.filter(
+      (p) =>
+        p.new_arrival ||
+        p.badge === "NEW ARRIVAL" ||
+        p.tags.includes("NEW ARRIVAL") ||
+        p.tags.includes("New Arrivals")
+    );
+    const markedIds = new Set(markedNew.map((p) => p.id));
+    const backfill = products.filter((p) => !markedIds.has(p.id));
+    return [...markedNew, ...backfill].slice(0, 6);
+  }, [products]);
+
+  // Dynamically curate items marked as Featured / Star-marked by Admin
+  const featuredItems = useMemo(() => {
+    // Strictly display only products star-marked / featured by the admin
+    const starred = products.filter((p) => Boolean(p.featured));
+    // Graceful fallback only if the store has zero starred items configured yet
+    if (starred.length === 0) return products.slice(0, 4);
+    return starred;
+  }, [products]);
+
   return (
     <>
       {/* 1. Cinematic 3D Hero with Liquid-like Motion */}
@@ -648,42 +780,47 @@ function HomePage({
 
       {/* Curated Campaign Collections */}
       <div id="featured-collections">
-        <ScrollDriven3D depth={40}>
-          <ScrollReveal variant="fadeUp">
-            <FeaturedCollections go={go} />
-          </ScrollReveal>
-        </ScrollDriven3D>
+        <FeaturedCollections collections={collections} go={go} />
       </div>
 
-      {/* Curated SS26 Exhibition Grid */}
+      {/* Curated SS26 Exhibition Grid (New Arrivals) */}
       <div id="atelier-exhibition">
-        <ScrollDriven3D depth={50}>
-          <ScrollReveal variant="fadeUp">
-            <AtelierExhibition
-              title="New Arrivals SS26"
-              eyebrow="Curated Atelier Exhibition"
-              description="Silhouettes cut from 300 GSM cotton, stonewashed denim, and rich velvet."
-              items={products.slice(0, 6)}
-              go={go}
-              wishlist={wishlist}
-              toggleWishlist={toggleWishlist}
-              addToCart={addToCart}
-              onCuratorInspect={onCuratorInspect}
-            />
-          </ScrollReveal>
-        </ScrollDriven3D>
+        <AtelierExhibition
+          title="New Arrivals SS26"
+          eyebrow="Curated Atelier Exhibition"
+          description="Silhouettes cut from 300 GSM cotton, stonewashed denim, and rich velvet."
+          items={newArrivalItems}
+          go={go}
+          wishlist={wishlist}
+          toggleWishlist={toggleWishlist}
+          addToCart={addToCart}
+          onCuratorInspect={onCuratorInspect}
+        />
+      </div>
+
+      {/* Featured Products Spotlight (Star-Marked Atelier Icons) */}
+      <div id="featured-products">
+        <AtelierExhibition
+          title="Featured Atelier Icons"
+          eyebrow="03 / Star-Marked Spotlight"
+          description="Master silhouettes spotlighted by the Maison for standout proportion, collector codes, and material depth."
+          items={featuredItems}
+          go={go}
+          wishlist={wishlist}
+          toggleWishlist={toggleWishlist}
+          addToCart={addToCart}
+          onCuratorInspect={onCuratorInspect}
+        />
       </div>
 
       {/* Interactive Runway Lookbook */}
-      <ScrollDriven3D depth={45}>
-        <ScrollReveal variant="fadeUp">
-          <RunwayLookbook
-            onSelectProduct={(p) => go("product", p)}
-            onAddToCart={addToCart}
-            onOpenCurator={onCuratorInspect}
-          />
-        </ScrollReveal>
-      </ScrollDriven3D>
+      <div id="runway-lookbook">
+        <RunwayLookbook
+          onSelectProduct={(p) => go("product", p)}
+          onAddToCart={addToCart}
+          onOpenCurator={onCuratorInspect}
+        />
+      </div>
 
       {/* Minimal Dispatch Newsletter */}
       <Newsletter go={go} />
@@ -694,11 +831,12 @@ function HomePage({
   );
 }
 
-function FeaturedCollections({ go }: { go: (page: Page) => void }) {
+function FeaturedCollections({ collections = [], go }: { collections?: Collection[]; go: (page: Page) => void }) {
+  const displayCollections = collections.length > 0 ? collections : staticCollections;
   return (
     <Section eyebrow="01 / Curated Collections" title="A house wardrobe with campaign gravity.">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {collections.map((collection, index) => (
+        {displayCollections.map((collection, index) => (
           <motion.button
             key={collection.handle}
             variants={fadeUp}
@@ -713,8 +851,6 @@ function FeaturedCollections({ go }: { go: (page: Page) => void }) {
               index === 1 && "lg:mt-16",
               index === 2 && "lg:-mt-6"
             )}
-            data-cursor="view"
-            data-cursor-text="COLLECTION"
           >
             <div className="relative aspect-[4/5] overflow-hidden bg-parchment">
               <img
@@ -760,122 +896,55 @@ function AtelierExhibition({
   eyebrow: string;
   description?: string;
   items: Product[];
-  go: (page: Page, product?: Product) => void;
+  go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
   wishlist: string[];
   toggleWishlist: (product: Product) => void;
   addToCart: (product: Product) => void;
   onCuratorInspect: (product: Product) => void;
 }) {
-  const [viewMode, setViewMode] = useState<"atelier" | "grid" | "runway">("atelier");
+  // Balanced responsive grid that adapts cleanly to item count without empty ghost columns or tiny cards
+  const gridLayoutClass = useMemo(() => {
+    if (items.length === 1) return "grid grid-cols-1 max-w-md mx-auto";
+    if (items.length === 2) return "grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 max-w-4xl mx-auto";
+    if (items.length === 3) return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6";
+    return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6";
+  }, [items.length]);
 
   return (
     <Section eyebrow={eyebrow} title={title}>
-      {/* Top Controller: View Switcher */}
-      <div className="mb-8 flex flex-col justify-between gap-4 border-b border-ink/15 pb-5 sm:flex-row sm:items-center">
+      {/* Editorial Header with subtle direct collection link */}
+      <div className="mb-6 sm:mb-8 flex flex-col justify-between gap-3 border-b border-ink/15 pb-4 sm:flex-row sm:items-end">
         {description ? (
           <p className="max-w-2xl font-editorial text-lg sm:text-xl md:text-2xl text-graphite/90 italic font-medium leading-relaxed">{description}</p>
         ) : (
           <div />
         )}
 
-        <div className="flex items-center gap-2 self-end">
-          <span className="font-mono text-xs uppercase tracking-wider text-taupe mr-2 font-medium">
-            Display Mode:
-          </span>
-          <button
-            onClick={() => setViewMode("atelier")}
-            className={cx(
-              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition",
-              viewMode === "atelier"
-                ? "border-chartreuse bg-chartreuse text-ink font-bold shadow-sm"
-                : "border-ink/20 text-taupe hover:border-chartreuse hover:text-chartreuse"
-            )}
-            title="Asymmetric Atelier Exhibition"
-          >
-            <Columns size={12} />
-            <span className="hidden sm:inline">Atelier</span>
-          </button>
-
-          <button
-            onClick={() => setViewMode("runway")}
-            className={cx(
-              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition",
-              viewMode === "runway"
-                ? "border-chartreuse bg-chartreuse text-ink font-bold shadow-sm"
-                : "border-ink/20 text-taupe hover:border-chartreuse hover:text-chartreuse"
-            )}
-            title="Horizontal Runway Stream"
-          >
-            <SlidersHorizontal size={12} />
-            <span className="hidden sm:inline">Runway</span>
-          </button>
-
-          <button
-            onClick={() => setViewMode("grid")}
-            className={cx(
-              "flex items-center gap-1.5 border px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition",
-              viewMode === "grid"
-                ? "border-chartreuse bg-chartreuse text-ink font-bold shadow-sm"
-                : "border-ink/20 text-taupe hover:border-chartreuse hover:text-chartreuse"
-            )}
-            title="Standard High-Density Grid"
-          >
-            <LayoutGrid size={12} />
-            <span className="hidden sm:inline">Grid</span>
-          </button>
-        </div>
+        <button
+          onClick={() => go("collection", undefined, eyebrow.includes("Star") ? "All" : "New Arrivals", "All")}
+          className="group inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-taupe hover:text-chartreuse transition font-semibold self-start sm:self-auto shrink-0 pb-1"
+        >
+          <span>Explore All Works</span>
+          <ArrowRight size={13} className="transition-transform group-hover:translate-x-1 text-chartreuse" />
+        </button>
       </div>
 
-      {/* Render based on view mode (Clean, high-end 2D cards) */}
-      {viewMode === "runway" ? (
-        <div className="flex gap-5 overflow-x-auto pb-6 pt-2 scrollbar-thin">
-          {items.map((product, idx) => (
-            <ProductCard3D
-              key={product.id}
-              product={product}
-              index={idx}
-              wished={wishlist.includes(product.id)}
-              onSelect={(p) => go("product", p)}
-              onWish={() => toggleWishlist(product)}
-              onAdd={addToCart}
-              onCuratorInspect={onCuratorInspect}
-              viewMode="runway"
-            />
-          ))}
-        </div>
-      ) : viewMode === "atelier" ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-          {items.map((product, idx) => (
-            <ProductCard3D
-              key={product.id}
-              product={product}
-              index={idx}
-              wished={wishlist.includes(product.id)}
-              onSelect={(p) => go("product", p)}
-              onWish={() => toggleWishlist(product)}
-              onAdd={addToCart}
-              onCuratorInspect={onCuratorInspect}
-              viewMode="atelier"
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {items.map((product, idx) => (
-            <ProductCard3D
-              key={product.id}
-              product={product}
-              index={idx}
-              wished={wishlist.includes(product.id)}
-              onSelect={(p) => go("product", p)}
-              onWish={() => toggleWishlist(product)}
-              onAdd={addToCart}
-              onCuratorInspect={onCuratorInspect}
-              viewMode="grid"
-            />
-          ))}
-        </div>
-      )}
+      {/* Clean, Full-Width, Balanced Luxury Product Grid */}
+      <div className={gridLayoutClass}>
+        {items.map((product, idx) => (
+          <ProductCard3D
+            key={product.id}
+            product={product}
+            index={idx}
+            wished={wishlist.includes(product.id)}
+            onSelect={(p) => go("product", p)}
+            onWish={() => toggleWishlist(product)}
+            onAdd={addToCart}
+            onCuratorInspect={onCuratorInspect}
+            viewMode="atelier"
+          />
+        ))}
+      </div>
     </Section>
   );
 }
@@ -889,6 +958,8 @@ function CollectionPage({
   initialCategory,
   initialSubCategory,
   products = staticProducts,
+  categories = [],
+  navGroups: activeNavGroups = navGroups,
 }: {
   go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
   wishlist: string[];
@@ -898,6 +969,8 @@ function CollectionPage({
   initialCategory?: string;
   initialSubCategory?: string;
   products?: Product[];
+  categories?: DbCategory[];
+  navGroups?: Record<string, string[]>;
 }) {
   const [mainCategory, setMainCategory] = useState(initialCategory || "All");
   const [subCategory, setSubCategory] = useState(initialSubCategory || "All");
@@ -916,11 +989,25 @@ function CollectionPage({
     }
   }, [initialSubCategory]);
 
-  const mainCategories = ["All", "New Arrivals", "Women", "Men", "Sets & Tracksuits", "Archives"];
+  const mainCategories = useMemo(() => {
+    if (categories && categories.length > 0) {
+      return ["All", ...categories.map((c) => c.name)];
+    }
+    return ["All", "New Arrivals", "Women", "Men", "Sets & Tracksuits", "Archives"];
+  }, [categories]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { All: products.length };
-    c["New Arrivals"] = products.filter((p) => p.collection === "ss26" || p.tags.includes("SS26") || p.tags.includes("NEW ARRIVAL")).length;
+    c["New Arrivals"] = products.filter(
+      (p) =>
+        p.new_arrival ||
+        p.badge === "NEW ARRIVAL" ||
+        p.collection === "ss26" ||
+        p.tags.includes("SS26") ||
+        p.tags.includes("NEW ARRIVAL") ||
+        p.tags.includes("New Arrivals") ||
+        p.mainCategory === "New Arrivals"
+    ).length;
     c["Women"] = products.filter((p) => {
       const isWomen = Array.isArray(p.mainCategory) ? p.mainCategory.includes("Women") : p.mainCategory === "Women";
       return isWomen || p.tags.includes("Women");
@@ -935,6 +1022,17 @@ function CollectionPage({
     }).length;
     c["Archives"] = products.filter((p) => p.collection === "ss24" || p.collection === "athleisure-campaign" || p.tags.includes("Archives")).length;
 
+    if (categories && categories.length > 0) {
+      categories.forEach((cat) => {
+        if (c[cat.name] === undefined) {
+          c[cat.name] = products.filter((p) => {
+            const isMatch = Array.isArray(p.mainCategory) ? p.mainCategory.includes(cat.name) : p.mainCategory === cat.name;
+            return isMatch || p.category === cat.name || p.tags.includes(cat.name);
+          }).length;
+        }
+      });
+    }
+
     products.forEach((p) => {
       if (p.subCategory) {
         c[p.subCategory] = (c[p.subCategory] || 0) + 1;
@@ -944,13 +1042,24 @@ function CollectionPage({
       }
     });
     return c;
-  }, [products]);
+  }, [products, categories]);
 
   const filtered = useMemo(() => {
     let list = [...products];
 
-    if (mainCategory === "New Arrivals") {
-      list = list.filter((p) => p.collection === "ss26" || p.tags.includes("SS26") || p.tags.includes("NEW ARRIVAL"));
+    if (mainCategory === "All") {
+      // show all without mainCategory filter
+    } else if (mainCategory === "New Arrivals") {
+      list = list.filter(
+        (p) =>
+          p.new_arrival ||
+          p.badge === "NEW ARRIVAL" ||
+          p.collection === "ss26" ||
+          p.tags.includes("SS26") ||
+          p.tags.includes("NEW ARRIVAL") ||
+          p.tags.includes("New Arrivals") ||
+          p.mainCategory === "New Arrivals"
+      );
     } else if (mainCategory === "Women") {
       list = list.filter((p) => {
         const isWomen = Array.isArray(p.mainCategory) ? p.mainCategory.includes("Women") : p.mainCategory === "Women";
@@ -968,6 +1077,12 @@ function CollectionPage({
       });
     } else if (mainCategory === "Archives") {
       list = list.filter((p) => p.collection === "ss24" || p.collection === "athleisure-campaign" || p.tags.includes("Archives"));
+    } else {
+      // Dynamic custom categories like "beach"
+      list = list.filter((p) => {
+        const isMatch = Array.isArray(p.mainCategory) ? p.mainCategory.includes(mainCategory) : p.mainCategory === mainCategory;
+        return isMatch || p.category === mainCategory || p.tags.includes(mainCategory);
+      });
     }
 
     if (subCategory && !subCategory.startsWith("All")) {
@@ -986,7 +1101,7 @@ function CollectionPage({
     return list;
   }, [mainCategory, subCategory, sort, products]);
 
-  const activeSubcategories = navGroups[mainCategory] || [];
+  const activeSubcategories = activeNavGroups[mainCategory] || [];
   const currentArchiveSection = mainCategory === "Archives" && subCategory && archiveSections[subCategory] ? archiveSections[subCategory] : null;
 
   return (
@@ -1008,7 +1123,7 @@ function CollectionPage({
           <p className="font-mono text-[11px] uppercase tracking-wideLuxury text-taupe mb-2 font-semibold">
             Main Category
           </p>
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {mainCategories.map((item) => (
               <button
                 key={item}
@@ -1017,7 +1132,7 @@ function CollectionPage({
                   setSubCategory("All");
                 }}
                 className={cx(
-                  "inline-flex items-center gap-2 border px-4 py-2 font-mono text-xs uppercase tracking-wideLuxury transition shrink-0 whitespace-nowrap min-h-[38px]",
+                  "inline-flex items-center gap-1.5 sm:gap-2 border px-2.5 sm:px-3.5 py-1.5 sm:py-2 font-mono text-[11px] sm:text-xs uppercase tracking-wider transition shrink-0 whitespace-nowrap min-h-[32px] sm:min-h-[36px]",
                   mainCategory === item
                     ? "border-chartreuse bg-ink text-chartreuse font-bold shadow-sm ring-1 ring-chartreuse"
                     : "border-ink/20 text-graphite hover:border-chartreuse hover:text-chartreuse bg-white/40"
@@ -1026,7 +1141,7 @@ function CollectionPage({
                 <span>{item}</span>
                 <span
                   className={cx(
-                    "rounded-full px-2 py-0.5 text-[11px] font-mono font-semibold",
+                    "rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-mono font-semibold",
                     mainCategory === item ? "bg-chartreuse text-ink font-bold" : "bg-ink/10 text-taupe"
                   )}
                 >
@@ -1053,7 +1168,7 @@ function CollectionPage({
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {["All " + mainCategory, ...activeSubcategories].map((item) => {
                 const isSelected = item === "All " + mainCategory ? subCategory === "All" : subCategory === item;
                 const displayCount = item === "All " + mainCategory ? (counts[mainCategory] || 0) : (counts[item] !== undefined ? counts[item] : 0);
@@ -1069,7 +1184,7 @@ function CollectionPage({
                       }
                     }}
                     className={cx(
-                      "inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-xs uppercase tracking-wideLuxury transition shrink-0 whitespace-nowrap min-h-[34px]",
+                      "inline-flex items-center gap-1.5 sm:gap-2 border px-2 sm:px-3 py-1 sm:py-1.5 font-mono text-[10px] sm:text-xs uppercase tracking-wider transition shrink-0 whitespace-nowrap min-h-[28px] sm:min-h-[32px]",
                       isSelected
                         ? "border-chartreuse bg-chartreuse text-ink font-bold shadow-sm"
                         : "border-ink/15 text-graphite hover:border-ink hover:text-ink bg-white/60"
@@ -1079,7 +1194,7 @@ function CollectionPage({
                     {displayCount > 0 && (
                       <span
                         className={cx(
-                          "rounded-full px-1.5 py-0.2 text-[10px] font-mono font-semibold",
+                          "rounded-full px-1.5 py-0.2 text-[9px] sm:text-[10px] font-mono font-semibold",
                           isSelected ? "bg-ink text-chartreuse" : "bg-ink/10 text-taupe"
                         )}
                       >
@@ -1559,12 +1674,15 @@ function LookbookPage({
   addToCart,
   onCuratorInspect,
   activeSection,
+  collections = [],
 }: {
   go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
   addToCart: (product: Product) => void;
   onCuratorInspect: (product: Product) => void;
   activeSection?: string;
+  collections?: Collection[];
 }) {
+  const displayCollections = collections.length > 0 ? collections : staticCollections;
   const archiveTabs = ["All Archives", "History", "Lookbooks", "Creative Projects", "Diary", "Evolution"];
   const [currentTab, setCurrentTab] = useState(() => {
     if (activeSection && archiveTabs.includes(activeSection)) return activeSection;
@@ -1586,13 +1704,13 @@ function LookbookPage({
         <p className="font-mono text-xs uppercase tracking-wideLuxury text-taupe mb-3 font-semibold">
           Archives Record Category
         </p>
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {archiveTabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setCurrentTab(tab)}
               className={cx(
-                "inline-flex items-center gap-2 border px-4 py-2 font-mono text-xs uppercase tracking-wideLuxury transition shrink-0 whitespace-nowrap min-h-[38px]",
+                "inline-flex items-center gap-1.5 sm:gap-2 border px-2.5 sm:px-4 py-1.5 sm:py-2 font-mono text-[11px] sm:text-xs uppercase tracking-wider transition shrink-0 whitespace-nowrap min-h-[32px] sm:min-h-[36px]",
                 currentTab === tab
                   ? "border-chartreuse bg-ink text-chartreuse font-bold shadow-sm ring-1 ring-chartreuse"
                   : "border-ink/20 text-graphite hover:border-chartreuse hover:text-chartreuse bg-white/40"
@@ -1651,7 +1769,7 @@ function LookbookPage({
                   onClick={() => setCurrentTab("Lookbooks")}
                   className="border border-ink px-6 py-3.5 font-mono text-xs uppercase tracking-[0.2em] text-ink hover:bg-ink hover:text-ivory transition"
                 >
-                  Explore Runway Monograph
+                  Explore Seasonal Lookbooks
                 </button>
               </div>
             </div>
@@ -1667,28 +1785,17 @@ function LookbookPage({
         </motion.div>
       )}
 
-      {/* Runway Lookbook & Seasonal Collections */}
+      {/* Seasonal Campaign Studies */}
       {(currentTab === "All Archives" || currentTab === "Lookbooks") && (
         <>
-          <div className="mb-6">
-            <h3 className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">
-              01 // Interactive Runway Monograph
-            </h3>
-          </div>
-          <RunwayLookbook
-            onSelectProduct={(p) => go("product", p)}
-            onAddToCart={addToCart}
-            onOpenCurator={onCuratorInspect}
-          />
-
           {/* Campaign Studies Archives */}
-          <div className="mt-12 sm:mt-20 space-y-12 sm:space-y-20 border-t border-ink/15 pt-12 sm:pt-20">
+          <div className="space-y-12 sm:space-y-20">
             <div className="mb-2">
               <h3 className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">
-                02 // Seasonal Campaign Studies
+                01 // Seasonal Campaign Studies
               </h3>
             </div>
-            {collections.map((collection, index) => (
+            {displayCollections.map((collection, index) => (
               <motion.article
                 key={collection.handle}
                 variants={fadeUp}
@@ -1737,7 +1844,7 @@ function LookbookPage({
           {currentTab === "All Archives" && (
             <div className="mt-16 sm:mt-24 border-t border-ink/15 pt-12 sm:pt-16">
               <h3 className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold mb-6">
-                03 // Historical & Atelier Chronicle Records
+                02 // Historical & Atelier Chronicle Records
               </h3>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {Object.entries(archiveSections)
@@ -2110,7 +2217,7 @@ function WishlistPage({
 }
 
 function AccountPage({ go }: { go: (page: Page) => void }) {
-  const { user, isAdmin, login, signUp, logout, quickDemoLogin } = useAuth();
+  const { user, login, signUp, logout } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -2134,14 +2241,19 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
     e.preventDefault();
     setErrorMsg(null);
     setLoading(true);
-    if (isRegister) {
-      const res = await signUp(email, password, fullName);
-      if (!res.success) setErrorMsg(res.error || "Registration failed");
-    } else {
-      const res = await login(email, password);
-      if (!res.success) setErrorMsg(res.error || "Login failed");
+    try {
+      if (isRegister) {
+        const res = await signUp(email, password, fullName);
+        if (!res.success) setErrorMsg(res.error || "Registration failed. Please try again.");
+      } else {
+        const res = await login(email, password);
+        if (!res.success) setErrorMsg(res.error || "Login failed. Please check your credentials.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Authentication error occurred. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -2158,7 +2270,7 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
                 </h3>
               </div>
               <span className="bg-chartreuse text-ink font-mono text-xs px-2.5 py-1 uppercase font-bold">
-                {user.role}
+                Client
               </span>
             </div>
 
@@ -2166,24 +2278,6 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
               <p><span className="text-taupe uppercase">Email:</span> {user.email}</p>
               <p><span className="text-taupe uppercase">Membership Status:</span> Active Atelier Member</p>
             </div>
-
-            {isAdmin && (
-              <div className="p-4 bg-ink text-ivory border border-chartreuse/40 space-y-3">
-                <div className="flex items-center gap-2 text-chartreuse font-mono text-xs font-bold uppercase tracking-wider">
-                  <ShieldCheck size={16} />
-                  <span>Administrative Clearance Granted</span>
-                </div>
-                <p className="font-mono text-xs text-ivory/70">
-                  You possess authorized access to the Maison Makeeva administrative dashboard.
-                </p>
-                <button
-                  onClick={() => go("admin")}
-                  className="w-full bg-chartreuse text-ink font-mono text-xs font-bold uppercase py-2.5 tracking-wider hover:bg-white transition"
-                >
-                  Enter Atelier Administration Portal (/admin) →
-                </button>
-              </div>
-            )}
 
             <button
               onClick={logout}
@@ -2207,19 +2301,53 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
                 No orders registered under this client email yet.
               </div>
             ) : (
-              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                 {myOrders.map((ord) => (
-                  <div key={ord.id} className="border border-ink/15 bg-ivory p-3.5 font-mono text-xs flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-ink">{ord.order_number}</p>
-                      <p className="text-[10px] text-taupe">{new Date(ord.created_at).toLocaleDateString()} · {ord.items?.length || 0} Silhouette(s)</p>
+                  <div key={ord.id} className="border border-ink/15 bg-ivory p-3.5 font-mono text-xs space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-ink/10 pb-2">
+                      <div>
+                        <p className="font-bold text-ink">{ord.order_number}</p>
+                        <p className="text-[10px] text-taupe">{new Date(ord.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-chartreuse">{formatMoney(ord.total)}</p>
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 border border-ink/20 font-semibold">
+                          {ord.order_status}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-chartreuse">{formatMoney(ord.total)}</p>
-                      <span className="text-[9px] uppercase px-1.5 py-0.2 border border-ink/20 font-semibold">
-                        {ord.order_status}
-                      </span>
-                    </div>
+
+                    {/* Client Order Items with Image and Details */}
+                    {ord.items && ord.items.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        {ord.items.map((item, iIdx) => (
+                          <div key={item.id || iIdx} className="flex items-center gap-2.5 bg-[#f5f4ef] p-1.5 border border-ink/10">
+                            {item.image_url ? (
+                              <img
+                                src={item.image_url}
+                                alt={item.product_name}
+                                className="h-10 w-8 object-cover border border-ink/10 shrink-0"
+                              />
+                            ) : (
+                              <div className="h-10 w-8 bg-ink/5 border border-ink/10 flex items-center justify-center shrink-0 text-[10px] text-taupe font-bold">
+                                MM
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-ink text-[11px] truncate">{item.product_name}</p>
+                              <p className="text-[10px] text-taupe">
+                                Size: <span className="text-graphite font-semibold">{item.size}</span>
+                                {item.color && item.color !== "Default" && (
+                                  <> · Color: <span className="text-graphite font-semibold">{item.color}</span></>
+                                )}
+                                {" "}· Qty: <span className="text-graphite font-semibold">{item.quantity}</span>
+                                {" "}· <span className="text-graphite font-semibold">{formatMoney(item.price)}</span>
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2282,27 +2410,6 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
             >
               {loading ? "Processing..." : isRegister ? "Create Client Archive" : "Access Client Profile"}
             </button>
-
-            {/* Sandbox Quick Access */}
-            <div className="pt-4 border-t border-ink/10 space-y-2">
-              <p className="font-mono text-[10px] uppercase text-taupe text-center">Development Sandbox Shortcuts</p>
-              <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-                <button
-                  type="button"
-                  onClick={() => quickDemoLogin("customer")}
-                  className="border border-ink/20 py-2 text-ink hover:border-chartreuse text-[11px] uppercase"
-                >
-                  Demo Client
-                </button>
-                <button
-                  type="button"
-                  onClick={() => quickDemoLogin("admin")}
-                  className="border border-chartreuse bg-chartreuse/10 text-ink hover:bg-chartreuse py-2 text-[11px] uppercase font-bold"
-                >
-                  Demo Admin
-                </button>
-              </div>
-            </div>
           </form>
 
           <div className="bg-parchment p-4 sm:p-10 border border-ink/15 shadow-sm">
@@ -2554,11 +2661,11 @@ function Section({ eyebrow, title, children }: { eyebrow: string; title: string;
     <motion.section
       initial="hidden"
       whileInView="show"
-      viewport={{ once: true, margin: "-80px" }}
-      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}
-      className="relative z-10 px-4 py-14 sm:px-10 sm:py-20 lg:px-16 max-w-[1700px] mx-auto"
+      viewport={{ once: true, margin: "120px" }}
+      variants={{ hidden: { opacity: 0.85 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }}
+      className="relative z-10 px-4 py-8 sm:px-10 sm:py-14 lg:px-16 max-w-[1700px] mx-auto"
     >
-      <motion.div variants={fadeUp} className="mb-6 sm:mb-10 flex flex-col justify-between gap-3 sm:gap-4 md:flex-row md:items-end">
+      <motion.div variants={fadeUp} className="mb-5 sm:mb-8 flex flex-col justify-between gap-3 sm:gap-4 md:flex-row md:items-end">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-taupe font-semibold">{eyebrow}</p>
           <h2 className="mt-2 sm:mt-3 font-display text-2xl uppercase leading-none sm:text-4xl lg:text-5xl">{title}</h2>
@@ -2614,20 +2721,37 @@ function MobileMenu({
   open,
   onClose,
   go,
+  menus = shopifyMenus,
+  navGroups: activeNavGroups = navGroups,
+  mainCategories = [],
 }: {
   open: boolean;
   onClose: () => void;
   go: (page: Page, product?: Product, category?: string, subCategory?: string) => void;
+  menus?: ShopMenu[];
+  navGroups?: Record<string, string[]>;
+  mainCategories?: DbCategory[];
 }) {
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
-  const categoryShortcuts = [
-    { label: "New Arrivals", count: "SS26" },
-    { label: "Women", count: "8 Subcategories" },
-    { label: "Men", count: "7 Subcategories" },
-    { label: "Sets & Tracksuits", count: "Collection" },
-    { label: "Archives", count: "5 Records" },
-  ];
+  const categoryShortcuts = useMemo(() => {
+    if (mainCategories && mainCategories.length > 0) {
+      return mainCategories.map((cat) => {
+        const subsCount = activeNavGroups[cat.name]?.length ?? 0;
+        return {
+          label: cat.name,
+          count: subsCount > 0 ? `${subsCount} Subcategories` : (cat.description || "Collection"),
+        };
+      });
+    }
+    return [
+      { label: "New Arrivals", count: "SS26" },
+      { label: "Women", count: "8 Subcategories" },
+      { label: "Men", count: "7 Subcategories" },
+      { label: "Sets & Tracksuits", count: "Collection" },
+      { label: "Archives", count: "5 Records" },
+    ];
+  }, [mainCategories, activeNavGroups]);
 
   const toggleExpand = (label: string) => {
     setExpandedMenu((prev) => (prev === label ? null : label));
@@ -2690,9 +2814,9 @@ function MobileMenu({
 
             {/* Expandable Navigation Menus */}
             <div className="mt-5 space-y-3">
-              {shopifyMenus.map((menu) => {
+              {menus.map((menu) => {
                 const isExpanded = expandedMenu === menu.label;
-                const subs = navGroups[menu.label] || [];
+                const subs = activeNavGroups[menu.label] || [];
                 const hasSubs = subs.length > 0;
 
                 return (

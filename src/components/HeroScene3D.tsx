@@ -225,8 +225,6 @@ function CoutureAccents({
   scrollNorm: React.MutableRefObject<number>;
   lightPos: React.MutableRefObject<THREE.Vector3>;
 }) {
-  const dropletRef1 = useRef<THREE.Mesh>(null);
-  const dropletRef2 = useRef<THREE.Mesh>(null);
   const particleGroupRef = useRef<THREE.Group>(null);
 
   // Generate 36 subtle luminous couture threads / particles for multi-tier depth parallax
@@ -249,23 +247,6 @@ function CoutureAccents({
     const t = state.clock.elapsedTime;
     const s = scrollNorm.current;
 
-    // Primary terracotta specimen bead floating in mid-depth
-    if (dropletRef1.current) {
-      dropletRef1.current.position.y = 0.95 + Math.sin(t * 0.9) * 0.18 - Math.sin(s * Math.PI * 2) * 0.4;
-      dropletRef1.current.position.x = -2.6 + Math.cos(t * 0.4) * 0.15;
-      dropletRef1.current.position.z = 0.6 - Math.sin(s * Math.PI) * 0.3;
-      dropletRef1.current.rotation.y = t * 0.4;
-      dropletRef1.current.rotation.x = t * 0.25;
-    }
-
-    // Secondary warm terracotta accent droplet
-    if (dropletRef2.current) {
-      dropletRef2.current.position.y = -0.85 + Math.sin(t * 0.75 + 1.2) * 0.16 + Math.sin(s * Math.PI * 2) * 0.35;
-      dropletRef2.current.position.x = 2.8 + Math.sin(t * 0.35) * 0.18;
-      dropletRef2.current.position.z = -0.4 + Math.cos(s * Math.PI) * 0.25;
-      dropletRef2.current.rotation.y = t * 0.3;
-    }
-
     // Floating delicate particles shifting in depth
     if (particleGroupRef.current) {
       particleGroupRef.current.children.forEach((child, i) => {
@@ -278,41 +259,6 @@ function CoutureAccents({
 
   return (
     <group>
-      {/* Primary Terracotta Couture Specimen Droplet */}
-      <Float speed={2} rotationIntensity={0.6} floatIntensity={0.8}>
-        <mesh ref={dropletRef1} position={[-2.6, 0.95, 0.6]} scale={[0.52, 0.52, 0.52]}>
-          <sphereGeometry args={[0.8, 48, 48]} />
-          <MeshDistortMaterial
-            color="#e78b73"
-            roughness={0.16}
-            metalness={0.92}
-            clearcoat={1}
-            clearcoatRoughness={0.06}
-            distort={0.4}
-            speed={2.8}
-            transparent
-            opacity={0.65}
-          />
-        </mesh>
-      </Float>
-
-      {/* Secondary Soft Terracotta Droplet */}
-      <Float speed={1.7} rotationIntensity={0.5} floatIntensity={0.7}>
-        <mesh ref={dropletRef2} position={[2.8, -0.85, -0.4]} scale={[0.42, 0.42, 0.42]}>
-          <sphereGeometry args={[0.75, 40, 40]} />
-          <MeshDistortMaterial
-            color="#e78b73"
-            roughness={0.22}
-            metalness={0.88}
-            clearcoat={0.9}
-            distort={0.35}
-            speed={2.4}
-            transparent
-            opacity={0.55}
-          />
-        </mesh>
-      </Float>
-
       {/* Floating atelier specular micro-threads for depth parallax */}
       <group ref={particleGroupRef}>
         {particles.map((p, idx) => (
@@ -457,7 +403,7 @@ export function HeroScene3D({ className = "" }: HeroScene3DProps) {
         dpr={[1, 1.5]}
         camera={{ position: [0, 0, 4.2], fov: 45 }}
         gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
-        style={{ width: "100vw", height: "100vh", position: "fixed", top: 0, left: 0 }}
+        style={{ width: "100%", height: "100%", position: "fixed", top: 0, left: 0 }}
       >
         <Suspense fallback={null}>
           <AtelierScene

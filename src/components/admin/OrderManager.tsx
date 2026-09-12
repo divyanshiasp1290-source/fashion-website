@@ -7,6 +7,7 @@ import {
   Package,
   Search,
   ShoppingBag,
+  Trash2,
   User,
   X,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../../services/api";
 import type { DbOrder, OrderStatus } from "../../types/database";
 import { formatMoney } from "../../utils";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 
 export const OrderManager: React.FC = () => {
   const [orders, setOrders] = useState<DbOrder[]>([]);
@@ -25,6 +27,10 @@ export const OrderManager: React.FC = () => {
 
   // Detail Drawer
   const [selectedOrder, setSelectedOrder] = useState<DbOrder | null>(null);
+
+  // Delete Modal State
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; orderNumber: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -43,6 +49,21 @@ export const OrderManager: React.FC = () => {
       setSelectedOrder(updated);
     }
     loadData();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await api.deleteOrder(deleteTarget.id);
+      if (selectedOrder?.id === deleteTarget.id) {
+        setSelectedOrder(null);
+      }
+      setDeleteTarget(null);
+      loadData();
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -128,32 +149,76 @@ export const OrderManager: React.FC = () => {
               <th className="p-4">Order Ref</th>
               <th className="p-4">Client</th>
               <th className="p-4">Date</th>
-              <th className="p-4">Items</th>
+              <th className="p-4">Items & Details</th>
               <th className="p-4">Total</th>
               <th className="p-4">Status</th>
-              <th className="p-4 text-right">Details</th>
+              <th className="p-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50/60 transition">
-                <td className="p-4 font-bold text-ink tracking-wider">
+              <tr key={order.id} className="hover:bg-gray-50/60 transition align-top">
+                <td className="p-4 font-bold text-ink tracking-wider whitespace-nowrap">
                   {order.order_number}
                 </td>
-                <td className="p-4">
-                  <p className="text-ink font-medium">{order.customer_name}</p>
-                  <p className="text-[10px] text-gray-400">{order.customer_email}</p>
+                <td className="p-4 min-w-[170px]">
+                  <p className="text-ink font-bold">{order.customer_name}</p>
+                  <p className="text-[10px] text-gray-500">{order.customer_email}</p>
+                  {order.customer_phone && (
+                    <p className="text-[10px] text-gray-400 mt-0.5">{order.customer_phone}</p>
+                  )}
+                  {order.shipping_address?.city && (
+                    <p className="text-[10px] text-gray-400">
+                      {order.shipping_address.city}, {order.shipping_address.country}
+                    </p>
+                  )}
                 </td>
-                <td className="p-4 text-gray-600">
+                <td className="p-4 text-gray-600 whitespace-nowrap">
                   {new Date(order.created_at).toLocaleDateString()}
                 </td>
-                <td className="p-4 text-gray-600">
-                  {order.items?.length || 0} Silhouette(s)
+                <td className="p-4 min-w-[280px]">
+                  {order.items && order.items.length > 0 ? (
+                    <div className="space-y-2">
+                      {order.items.map((item, idx) => (
+                        <div
+                          key={item.id || idx}
+                          className="flex items-center gap-3 bg-gray-50/80 p-2 border border-gray-200 rounded-xs"
+                        >
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.product_name}
+                              className="h-12 w-10 object-cover bg-white border border-gray-200 shrink-0 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="h-12 w-10 bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                              <Package size={14} className="text-gray-400" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-ink text-xs truncate" title={item.product_name}>
+                              {item.product_name}
+                            </p>
+                            <div className="text-[10px] text-gray-500 flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                              <span>Size: <strong className="text-gray-800">{item.size}</strong></span>
+                              {item.color && item.color !== "Default" && (
+                                <span>Color: <strong className="text-gray-800">{item.color}</strong></span>
+                              )}
+                              <span>Qty: <strong className="text-gray-800">{item.quantity}</strong></span>
+                              <span>Price: <strong className="text-gray-800">{formatMoney(item.price)}</strong></span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 italic">No items recorded</span>
+                  )}
                 </td>
-                <td className="p-4 font-bold text-ink">
+                <td className="p-4 font-bold text-ink whitespace-nowrap">
                   {formatMoney(order.total)}
                 </td>
-                <td className="p-4">
+                <td className="p-4 whitespace-nowrap">
                   <select
                     value={order.order_status}
                     onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
@@ -166,14 +231,25 @@ export const OrderManager: React.FC = () => {
                     ))}
                   </select>
                 </td>
-                <td className="p-4 text-right">
-                  <button
-                    onClick={() => setSelectedOrder(order)}
-                    className="p-1.5 text-gray-600 hover:text-ink hover:bg-gray-100 transition inline-flex items-center gap-1 uppercase text-[11px] font-semibold"
-                  >
-                    <Eye size={13} />
-                    <span>Inspect</span>
-                  </button>
+                <td className="p-4 text-right whitespace-nowrap">
+                  <div className="flex flex-col items-end gap-1.5">
+                    <button
+                      onClick={() => setSelectedOrder(order)}
+                      className="w-[84px] py-1.5 px-2 text-gray-600 hover:text-ink hover:bg-gray-100 border border-gray-200 hover:border-gray-300 transition inline-flex items-center justify-center gap-1.5 uppercase text-[11px] font-semibold bg-white shadow-2xs cursor-pointer"
+                      title="Inspect Dossier"
+                    >
+                      <Eye size={13} />
+                      <span>Inspect</span>
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget({ id: order.id, orderNumber: order.order_number })}
+                      className="w-[84px] py-1.5 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 transition inline-flex items-center justify-center gap-1.5 uppercase text-[11px] font-bold bg-white shadow-2xs cursor-pointer"
+                      title="Delete Order"
+                    >
+                      <Trash2 size={13} />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -246,32 +322,42 @@ export const OrderManager: React.FC = () => {
 
               {/* Ordered Items List */}
               <div className="space-y-3">
-                <p className="uppercase text-[11px] text-gray-500 font-bold tracking-wider">
-                  Ordered Silhouettes ({selectedOrder.items?.length || 0})
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="uppercase text-[11px] text-gray-500 font-bold tracking-wider">
+                    Ordered Silhouettes ({selectedOrder.items?.length || 0})
+                  </p>
+                  <span className="text-[10px] uppercase font-semibold text-gray-400">
+                    Client Specifications & Images
+                  </span>
+                </div>
                 <div className="border border-gray-200 divide-y divide-gray-100 bg-white shadow-2xs">
                   {selectedOrder.items?.map((item) => (
-                    <div key={item.id} className="p-3.5 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
+                    <div key={item.id} className="p-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5 min-w-0">
                         {item.image_url ? (
                           <img
                             src={item.image_url}
                             alt={item.product_name}
-                            className="h-12 w-10 object-cover bg-gray-100 border border-gray-200 shrink-0"
+                            className="h-16 w-14 object-cover bg-gray-100 border border-gray-200 shrink-0 shadow-2xs"
                           />
                         ) : (
-                          <div className="h-12 w-10 bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
-                            <Package size={14} className="text-gray-400" />
+                          <div className="h-16 w-14 bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                            <Package size={18} className="text-gray-400" />
                           </div>
                         )}
-                        <div>
-                          <p className="font-bold text-ink text-xs">{item.product_name}</p>
-                          <p className="text-[10px] text-gray-500">
-                            Proportion: {item.size} · Hue: {item.color || "Default"} · Qty: {item.quantity}
-                          </p>
+                        <div className="min-w-0">
+                          <p className="font-bold text-ink text-xs sm:text-sm leading-snug">{item.product_name}</p>
+                          <div className="text-[11px] text-gray-500 mt-1 space-y-0.5">
+                            <p>
+                              Proportion: <strong className="text-gray-800 font-semibold">{item.size}</strong> · Hue: <strong className="text-gray-800 font-semibold">{item.color || "Default"}</strong>
+                            </p>
+                            <p>
+                              Quantity: <strong className="text-gray-800 font-semibold">{item.quantity}</strong> × {formatMoney(item.price)}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <span className="font-bold text-ink shrink-0">
+                      <span className="font-bold text-ink shrink-0 text-sm">
                         {formatMoney(item.price * item.quantity)}
                       </span>
                     </div>
@@ -296,10 +382,17 @@ export const OrderManager: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-gray-200 flex justify-end">
+            <div className="pt-6 border-t border-gray-200 flex items-center justify-between gap-3">
+              <button
+                onClick={() => setDeleteTarget({ id: selectedOrder.id, orderNumber: selectedOrder.order_number })}
+                className="border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 px-4 py-2 uppercase font-bold text-xs flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+              >
+                <Trash2 size={14} />
+                <span>Delete Order</span>
+              </button>
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="bg-gray-100 hover:bg-gray-200 border border-gray-300 px-6 py-2 uppercase font-bold text-gray-800 transition text-xs shadow-2xs"
+                className="bg-gray-100 hover:bg-gray-200 border border-gray-300 px-6 py-2 uppercase font-bold text-gray-800 transition text-xs shadow-2xs cursor-pointer"
               >
                 Close Dossier
               </button>
@@ -307,6 +400,18 @@ export const OrderManager: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Popup */}
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Studio Order"
+        message="Are you sure you want to delete this order record and all associated silhouette line items? This action cannot be undone."
+        itemName={deleteTarget ? `Order Reference: ${deleteTarget.orderNumber}` : undefined}
+        confirmLabel="Delete Order"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setDeleteTarget(null)}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

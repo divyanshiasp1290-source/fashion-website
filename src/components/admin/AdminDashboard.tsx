@@ -9,6 +9,7 @@ import {
   Package,
   Plus,
   ShoppingBag,
+  Trash2,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { api } from "../../services/api";
 import type { DashboardStats, DbOrder, OrderStatus } from "../../types/database";
 import { formatMoney } from "../../utils";
 import type { AdminSection } from "./AdminLayout";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 
 type AdminDashboardProps = {
   onNavigate: (section: AdminSection) => void;
@@ -25,6 +27,8 @@ type AdminDashboardProps = {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState<{ type: "order" | "message"; id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -45,6 +49,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const handleQuickMessageRead = async (messageId: string) => {
     await api.updateContactStatus(messageId, "read");
     fetchStats();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModal) return;
+    setIsDeleting(true);
+    try {
+      if (deleteModal.type === "order") {
+        await api.deleteOrder(deleteModal.id);
+      } else {
+        await api.deleteContactMessage(deleteModal.id);
+      }
+      setDeleteModal(null);
+      fetchStats();
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (loading || !stats) {
@@ -165,6 +185,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
+                    <button
+                      onClick={() => setDeleteModal({ type: "order", id: order.id, name: `Order ${order.order_number}` })}
+                      className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 transition bg-white cursor-pointer"
+                      title="Delete order"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -213,14 +240,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                   </p>
                   <div className="flex items-center justify-between pt-1 text-[10px] text-gray-400">
                     <span>{msg.email}</span>
-                    {msg.status === "unread" && (
+                    <div className="flex items-center gap-2">
+                      {msg.status === "unread" && (
+                        <button
+                          onClick={() => handleQuickMessageRead(msg.id)}
+                          className="text-coral hover:underline uppercase font-bold"
+                        >
+                          Mark Read
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleQuickMessageRead(msg.id)}
-                        className="text-coral hover:underline uppercase font-bold"
+                        onClick={() => setDeleteModal({ type: "message", id: msg.id, name: `Inquiry from ${msg.name}` })}
+                        className="text-rose-500 hover:text-rose-700 hover:underline uppercase font-bold flex items-center gap-0.5 cursor-pointer"
+                        title="Delete inquiry"
                       >
-                        Mark Read
+                        <Trash2 size={11} />
+                        <span>Delete</span>
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -228,6 +265,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Popup */}
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteModal)}
+        title={deleteModal?.type === "order" ? "Delete Order Record" : "Delete Inquiry"}
+        message={
+          deleteModal?.type === "order"
+            ? "Are you sure you want to permanently delete this order? This action cannot be undone."
+            : "Are you sure you want to permanently delete this client inquiry? This action cannot be undone."
+        }
+        itemName={deleteModal?.name}
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setDeleteModal(null)}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

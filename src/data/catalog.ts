@@ -16,15 +16,20 @@ export type Product = {
   sizes: string[];
   colors: string[];
   images: string[];
+  status?: "active" | "inactive" | "draft";
+  new_arrival?: boolean;
+  featured?: boolean;
 };
 
 export type Collection = {
+  id?: string;
   handle: string;
   title: string;
   season: string;
   description: string;
   image: string;
   categories: string[];
+  status?: "active" | "inactive";
 };
 
 export type CategoryNode = {
@@ -421,7 +426,7 @@ export const products: Product[] = [
     materials: ["450 GSM combed cotton fleece", "Dense ribbing", "Puff embroidery print"],
     sizes: ["S", "M", "L", "XL", "XXL"],
     colors: ["Rebel Black", "Washed Slate"],
-    images: [cdn("RebelBlack_1024x1024_crop_center.jpg?v=1717758768"), cdn("D59A9997_8517fa4c-8149-4287-9bae-edb77c7a48af_2048x.jpg?v=1763735833")],
+    images: [cdn("D59A9997_8517fa4c-8149-4287-9bae-edb77c7a48af_2048x.jpg?v=1763735833"), cdn("RebelBlack_1024x1024_crop_center.jpg?v=1717758768")],
   },
   {
     id: "gid://shopify/Product/mm-architectural-trousers",

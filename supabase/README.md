@@ -37,6 +37,12 @@ Open the **SQL Editor** in your Supabase dashboard and run the migrations in thi
    - Configures Row Level Security (RLS) policies for public visitors, clients, and administrators.
 3. **Seed Data (Development/Initial Launch)**: Run [`supabase/seed.sql`](./seed.sql)
    - Seeds the SS26 runway collection, categories, products with photography, inventory variants, and initial settings.
+4. **Admin Sync & Security Fix (Required)**: Run [`supabase/migrations/20260918000000_fix_admin_sync_and_rls.sql`](./migrations/20260918000000_fix_admin_sync_and_rls.sql)
+   - Activates `pgcrypto` and provisions/confirms `admin@maisonmakeeva.com` in `auth.users` with password `_Admin@1290`.
+   - Updates `public.is_admin()` to properly recognize admin sessions and JWT tokens.
+   - Configures anonymous public INSERT policies for `contact_messages` and `orders`.
+   - Seeds client registry dossiers and links historical orders.
+   - Ensures `supabase_realtime` publication covers `contact_messages`, `customers`, and `orders`.
 
 ---
 

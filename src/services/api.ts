@@ -54,6 +54,10 @@ export const api = {
           "postgres_changes",
           { event: "*", schema: "public", table: tbl },
           (payload: any) => {
+            if (tbl === "orders" && payload.new) {
+              if (payload.new.id) mockStorage.updateOrderStatus(payload.new.id, payload.new.order_status);
+              if (payload.new.order_number) mockStorage.updateOrderStatus(payload.new.order_number, payload.new.order_status);
+            }
             callback({
               table: tbl,
               eventType: payload.eventType,
@@ -694,71 +698,182 @@ export const api = {
   // ORDERS (WITHOUT PAYMENT GATEWAY)
   // ==============================================================================
   async getOrders(): Promise<DbOrder[]> {
-    if (!isSupabaseConfigured()) {
-      return mockStorage.getOrders();
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*, items:order_items(*)")
+          .order("created_at", { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          data.forEach((ord: any) => {
+            mockStorage.updateOrderStatus(ord.id, ord.order_status);
+            mockStorage.updateOrderStatus(ord.order_number, ord.order_status);
+          });
+          return data as DbOrder[];
+        }
+      } catch (e) {
+        console.warn("Supabase getOrders note:", e);
+      }
     }
+    return mockStorage.getOrders();
+  },
 
-    try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*, items:order_items(*)")
-        .order("created_at", { ascending: false });
+  async getCustomerOrders(email: string, customerId?: string): Promise<DbOrder[]> {
+    if (!email) return [];
+    const cleanEmail = email.trim().toLowerCase();
 
-      if (error) {
-        console.warn("Supabase getOrders error, falling back to mock:", error.message);
-        return mockStorage.getOrders();
+    if (isSupabaseConfigured()) {
+      // 1. Direct Supabase query (authoritative cloud state)
+      try {
+        let query = supabase
+          .from("orders")
+          .select("*, items:order_items(*)")
+          .order("created_at", { ascending: false });
+
+        if (customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId)) {
+          query = query.or(`customer_email.ilike.${cleanEmail},customer_id.eq.${customerId}`);
+        } else {
+          query = query.ilike("customer_email", cleanEmail);
+        }
+
+        const { data, error } = await query;
+        if (!error && data && data.length > 0) {
+          data.forEach((ord: any) => {
+            mockStorage.saveOrder(ord as DbOrder);
+          });
+          return data as DbOrder[];
+        }
+      } catch (e) {
+        console.warn("Supabase getCustomerOrders direct query note:", e);
       }
 
-      return (data || []) as DbOrder[];
-    } catch (e) {
-      console.warn("Supabase getOrders exception, falling back to mock:", e);
-      return mockStorage.getOrders();
+      // 2. Try secure RPC function get_client_orders fallback
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc("get_client_orders", {
+          client_email: cleanEmail,
+        });
+
+        if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
+          rpcData.forEach((ord: any) => {
+            mockStorage.saveOrder(ord as DbOrder);
+          });
+          return rpcData as DbOrder[];
+        }
+      } catch (e) {
+        // RPC fallback
+      }
     }
+
+    // 3. Fallback to mockStorage for local registered orders
+    const localMatches = mockStorage.getOrders().filter(
+      (o) => o.customer_email.toLowerCase() === cleanEmail || (customerId && o.customer_id === customerId)
+    );
+    return localMatches;
   },
 
   async createOrder(orderPayload: CreateOrderPayload): Promise<DbOrder> {
+    const isValidUuid = (val?: string | null): boolean =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
+    const generateStandardUuid = (): string => {
+      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    };
+
+    // Resolve a valid UUID for customer_id
+    let resolvedCustomerId: string | null = null;
+    if (isValidUuid(orderPayload.customer_id)) {
+      resolvedCustomerId = orderPayload.customer_id!;
+    } else if (orderPayload.customer_email && isSupabaseConfigured()) {
+      try {
+        const { data: custRow } = await supabase
+          .from("customers")
+          .select("id")
+          .ilike("email", orderPayload.customer_email.trim())
+          .maybeSingle();
+        if (custRow?.id && isValidUuid(custRow.id)) {
+          resolvedCustomerId = custRow.id;
+        }
+      } catch {
+        // Safe to ignore
+      }
+    }
+
+    const orderId = generateStandardUuid();
+    const orderNumber = `MM-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = new Date().toISOString();
+
+    const resolvedItems: DbOrderItem[] = (orderPayload.items || []).map((it) => ({
+      id: (it.id && isValidUuid(it.id)) ? it.id : generateStandardUuid(),
+      order_id: orderId,
+      product_id: (it.product_id && isValidUuid(it.product_id)) ? it.product_id : null,
+      product_name: it.product_name,
+      quantity: it.quantity,
+      size: it.size,
+      color: it.color || "Default",
+      price: it.price,
+      image_url: it.image_url || null,
+    }));
+
+    const completeOrder: DbOrder = {
+      id: orderId,
+      customer_id: resolvedCustomerId,
+      order_number: orderNumber,
+      subtotal: orderPayload.subtotal,
+      shipping: orderPayload.shipping || 0,
+      total: orderPayload.total,
+      customer_name: orderPayload.customer_name,
+      customer_email: orderPayload.customer_email,
+      customer_phone: orderPayload.customer_phone || null,
+      shipping_address: orderPayload.shipping_address,
+      order_status: orderPayload.order_status || "Pending",
+      created_at: now,
+      updated_at: now,
+      items: resolvedItems,
+    };
+
+    // Keep mockStorage in sync
+    mockStorage.saveOrder(completeOrder);
+
     if (!isSupabaseConfigured()) {
-      const res = mockStorage.createOrder(orderPayload);
-      this.broadcastLocalChange("orders", "INSERT", res);
-      return res;
+      this.broadcastLocalChange("orders", "INSERT", completeOrder);
+      return completeOrder;
     }
 
     try {
-      const orderNumber = `MM-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-      const { data: orderData, error: orderError } = await supabase
+      // Avoid .select() to prevent guest checkout RLS SELECT failures
+      const { error: orderError } = await supabase
         .from("orders")
         .insert({
-          customer_id: orderPayload.customer_id || null,
-          order_number: orderNumber,
-          subtotal: orderPayload.subtotal,
-          shipping: orderPayload.shipping || 0,
-          total: orderPayload.total,
-          customer_name: orderPayload.customer_name,
-          customer_email: orderPayload.customer_email,
-          customer_phone: orderPayload.customer_phone || null,
-          shipping_address: orderPayload.shipping_address,
-          order_status: orderPayload.order_status || "Pending",
-        })
-        .select()
-        .single();
+          id: completeOrder.id,
+          customer_id: completeOrder.customer_id,
+          order_number: completeOrder.order_number,
+          subtotal: completeOrder.subtotal,
+          shipping: completeOrder.shipping,
+          total: completeOrder.total,
+          customer_name: completeOrder.customer_name,
+          customer_email: completeOrder.customer_email,
+          customer_phone: completeOrder.customer_phone,
+          shipping_address: completeOrder.shipping_address,
+          order_status: completeOrder.order_status,
+        });
 
-      if (orderError || !orderData) throw orderError || new Error("Failed to insert order");
+      if (orderError) {
+        console.error("Supabase createOrder error:", orderError.message);
+        throw orderError;
+      }
 
-      const resolvedItems: DbOrderItem[] = (orderPayload.items || []).map((it, idx) => ({
-        id: it.id || `item-${Date.now()}-${idx}`,
-        order_id: orderData.id,
-        product_id: it.product_id || null,
-        product_name: it.product_name,
-        quantity: it.quantity,
-        size: it.size,
-        color: it.color || null,
-        price: it.price,
-        image_url: it.image_url || null,
-      }));
-
-      if (orderPayload.items && orderPayload.items.length > 0) {
-        const itemRows = orderPayload.items.map((it) => ({
-          order_id: orderData.id,
+      if (resolvedItems.length > 0) {
+        const itemRows = resolvedItems.map((it) => ({
+          id: it.id,
+          order_id: orderId,
           product_id: it.product_id || null,
           product_name: it.product_name,
           quantity: it.quantity,
@@ -767,62 +882,120 @@ export const api = {
           price: it.price,
           image_url: it.image_url || null,
         }));
-        await supabase.from("order_items").insert(itemRows);
+        const { error: itemError } = await supabase.from("order_items").insert(itemRows);
+        if (itemError) {
+          console.error("Supabase order_items error:", itemError.message);
+        }
       }
 
-      const completeOrder: DbOrder = { ...orderData, items: resolvedItems };
       this.broadcastLocalChange("orders", "INSERT", completeOrder);
       return completeOrder;
     } catch (e) {
-      console.warn("Supabase createOrder failed, creating in mock:", e);
-      const res = mockStorage.createOrder(orderPayload);
-      this.broadcastLocalChange("orders", "INSERT", res);
-      return res;
+      console.warn("Supabase createOrder error, saved locally:", e);
+      this.broadcastLocalChange("orders", "INSERT", completeOrder);
+      return completeOrder;
     }
   },
 
   async updateOrderStatus(id: string, status: OrderStatus): Promise<DbOrder | null> {
+    const localRes = mockStorage.updateOrderStatus(id, status);
+
     if (!isSupabaseConfigured()) {
-      const res = mockStorage.updateOrderStatus(id, status);
-      this.broadcastLocalChange("orders", "UPDATE", res);
-      return res;
+      this.broadcastLocalChange("orders", "UPDATE", localRes);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("client-orders-updated", { detail: localRes }));
+      }
+      return localRes;
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("orders")
-        .update({ order_status: status, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select("*, items:order_items(*)")
-        .single();
+        .update({ order_status: status, updated_at: new Date().toISOString() });
 
-      if (error || !data) throw error || new Error("Failed to update order status");
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        query = query.eq("id", id);
+      } else {
+        query = query.eq("order_number", id);
+      }
 
-      const res = data as DbOrder;
+      const { data, error } = await query.select("*, items:order_items(*)");
+
+      if (error || !data || data.length === 0) {
+        console.warn("Supabase updateOrderStatus note, keeping local update:", error?.message);
+        this.broadcastLocalChange("orders", "UPDATE", localRes);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("storage"));
+          window.dispatchEvent(new CustomEvent("client-orders-updated", { detail: localRes }));
+        }
+        return localRes;
+      }
+
+      const res = data[0] as DbOrder;
+      // Also sync mockStorage with returned Supabase record (both id & order_number)
+      mockStorage.updateOrderStatus(res.id, res.order_status);
+      mockStorage.updateOrderStatus(res.order_number, res.order_status);
+
       this.broadcastLocalChange("orders", "UPDATE", res);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("client-orders-updated", { detail: res }));
+      }
       return res;
     } catch (e) {
       console.warn("Supabase updateOrderStatus error, updating mock:", e);
-      const res = mockStorage.updateOrderStatus(id, status);
-      this.broadcastLocalChange("orders", "UPDATE", res);
-      return res;
+      this.broadcastLocalChange("orders", "UPDATE", localRes);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("client-orders-updated", { detail: localRes }));
+      }
+      return localRes;
     }
   },
 
   async deleteOrder(id: string): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      mockStorage.deleteOrder(id);
-      this.broadcastLocalChange("orders", "DELETE", { id });
-      return;
-    }
+    mockStorage.deleteOrder(id);
 
-    try {
-      await supabase.from("orders").delete().eq("id", id);
+    if (isSupabaseConfigured()) {
+      try {
+        let targetId = id;
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+          const { data: ordRow } = await supabase
+            .from("orders")
+            .select("id")
+            .eq("order_number", id)
+            .maybeSingle();
+          if (ordRow?.id) {
+            targetId = ordRow.id;
+          }
+        }
+
+        await supabase.from("order_items").delete().eq("order_id", targetId);
+        const { error } = await supabase.from("orders").delete().eq("id", targetId);
+        if (error) {
+          console.error("Supabase deleteOrder error:", error.message);
+        }
+
+        this.broadcastLocalChange("orders", "DELETE", { id: targetId });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("storage"));
+          window.dispatchEvent(new CustomEvent("client-orders-updated"));
+        }
+      } catch (e) {
+        console.error("Supabase deleteOrder exception:", e);
+        this.broadcastLocalChange("orders", "DELETE", { id });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("storage"));
+          window.dispatchEvent(new CustomEvent("client-orders-updated"));
+        }
+      }
+    } else {
       this.broadcastLocalChange("orders", "DELETE", { id });
-    } catch (e) {
-      console.warn("Supabase deleteOrder error, deleting from mock:", e);
-      mockStorage.deleteOrder(id);
-      this.broadcastLocalChange("orders", "DELETE", { id });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("client-orders-updated"));
+      }
     }
   },
 
@@ -841,14 +1014,35 @@ export const api = {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn("Supabase getCustomers error, falling back to mock:", error.message);
-        return mockStorage.getCustomers();
+        console.warn("Supabase getCustomers error:", error.message);
+        return [];
       }
 
       return (data || []) as DbCustomer[];
     } catch (e) {
-      console.warn("Supabase getCustomers exception, falling back to mock:", e);
-      return mockStorage.getCustomers();
+      console.warn("Supabase getCustomers exception:", e);
+      return [];
+    }
+  },
+
+  async deleteCustomer(id: string): Promise<void> {
+    if (!isSupabaseConfigured()) {
+      mockStorage.deleteCustomer(id);
+      this.broadcastLocalChange("customers", "DELETE", { id });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("customers").delete().eq("id", id);
+      if (error) {
+        console.error("Supabase deleteCustomer error:", error.message);
+        throw error;
+      }
+      mockStorage.deleteCustomer(id);
+      this.broadcastLocalChange("customers", "DELETE", { id });
+    } catch (e) {
+      console.error("Supabase deleteCustomer exception:", e);
+      throw e;
     }
   },
 
@@ -931,47 +1125,72 @@ export const api = {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn("Supabase getContactMessages error, falling back to mock:", error.message);
-        return mockStorage.getContactMessages();
+        console.warn("Supabase getContactMessages error:", error.message);
+        return [];
       }
 
       return (data || []) as DbContactMessage[];
     } catch (e) {
-      console.warn("Supabase getContactMessages exception, falling back to mock:", e);
-      return mockStorage.getContactMessages();
+      console.warn("Supabase getContactMessages exception:", e);
+      return [];
     }
   },
 
   async createContactMessage(msg: Omit<DbContactMessage, "id" | "created_at" | "status">): Promise<DbContactMessage> {
+    const id =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const now = new Date().toISOString();
+    const newRecord: DbContactMessage = {
+      id,
+      name: msg.name,
+      email: msg.email,
+      phone: msg.phone || null,
+      message: msg.message,
+      status: "unread",
+      created_at: now,
+    };
+
+    // Always keep mockStorage in sync
+    mockStorage.createContactMessage({
+      name: newRecord.name,
+      email: newRecord.email,
+      phone: newRecord.phone || undefined,
+      message: newRecord.message,
+    });
+
     if (!isSupabaseConfigured()) {
-      const res = mockStorage.createContactMessage(msg);
-      this.broadcastLocalChange("contact_messages", "INSERT", res);
-      return res;
+      this.broadcastLocalChange("contact_messages", "INSERT", newRecord);
+      return newRecord;
     }
 
     try {
-      const { data, error } = await supabase
+      // NOTE: Do NOT chain .select() here!
+      // In Supabase RLS, anonymous public users have INSERT permission on contact_messages,
+      // but do NOT have SELECT permission. Chaining .select() executes RETURNING * which
+      // triggers SELECT RLS policy check and fails with 42501 permission denied.
+      const { error } = await supabase
         .from("contact_messages")
         .insert({
-          name: msg.name,
-          email: msg.email,
-          phone: msg.phone || null,
-          message: msg.message,
+          id: newRecord.id,
+          name: newRecord.name,
+          email: newRecord.email,
+          phone: newRecord.phone,
+          message: newRecord.message,
           status: "unread",
-        })
-        .select()
-        .single();
+        });
 
-      if (error || !data) throw error || new Error("Failed to insert contact message");
+      if (error) {
+        console.warn("Supabase createContactMessage error, stored locally:", error.message);
+      }
 
-      const res = data as DbContactMessage;
-      this.broadcastLocalChange("contact_messages", "INSERT", res);
-      return res;
+      this.broadcastLocalChange("contact_messages", "INSERT", newRecord);
+      return newRecord;
     } catch (e) {
-      console.warn("Supabase createContactMessage error, saving to mock:", e);
-      const res = mockStorage.createContactMessage(msg);
-      this.broadcastLocalChange("contact_messages", "INSERT", res);
-      return res;
+      console.warn("Supabase createContactMessage exception:", e);
+      this.broadcastLocalChange("contact_messages", "INSERT", newRecord);
+      return newRecord;
     }
   },
 
@@ -1000,12 +1219,16 @@ export const api = {
     }
 
     try {
-      await supabase.from("contact_messages").delete().eq("id", id);
-      this.broadcastLocalChange("contact_messages", "DELETE", { id });
-    } catch (e) {
-      console.warn("Supabase deleteContactMessage error, deleting from mock:", e);
+      const { error } = await supabase.from("contact_messages").delete().eq("id", id);
+      if (error) {
+        console.error("Supabase deleteContactMessage error:", error.message);
+        throw error;
+      }
       mockStorage.deleteContactMessage(id);
       this.broadcastLocalChange("contact_messages", "DELETE", { id });
+    } catch (e) {
+      console.error("Supabase deleteContactMessage exception:", e);
+      throw e;
     }
   },
 
@@ -1024,14 +1247,14 @@ export const api = {
         .order("subscribed_at", { ascending: false });
 
       if (error) {
-        console.warn("Supabase getNewsletterSubscribers error, falling back to mock:", error.message);
-        return mockStorage.getNewsletterSubscribers();
+        console.warn("Supabase getNewsletterSubscribers error:", error.message);
+        return [];
       }
 
       return (data || []) as DbNewsletterSubscriber[];
     } catch (e) {
-      console.warn("Supabase getNewsletterSubscribers exception, falling back to mock:", e);
-      return mockStorage.getNewsletterSubscribers();
+      console.warn("Supabase getNewsletterSubscribers exception:", e);
+      return [];
     }
   },
 
@@ -1135,19 +1358,23 @@ export const api = {
 
       const prods = prodsRes.data || [];
       const totalProducts = prods.length;
-      const activeProducts = prods.filter((p) => p.status === "active").length;
+      const activeProducts = prods.filter((p: any) => p.status === "active").length;
 
       const inv = invRes.data || [];
-      const lowStockCount = inv.filter((i) => i.stock_quantity <= (i.low_stock_threshold || 5)).length;
+      const lowStockCount = inv.filter((i: any) => i.stock_quantity <= (i.low_stock_threshold || 5)).length;
 
       const orders = (ordersRes.data || []) as DbOrder[];
       const totalOrders = orders.length;
       const pendingOrders = orders.filter((o) => o.order_status === "Pending").length;
       const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
-      const totalCustomers = custsRes.count || 0;
+      const totalCustomers = (custsRes.count !== null && custsRes.count !== undefined)
+        ? custsRes.count
+        : (custsRes.data ? custsRes.data.length : 0);
+
       const recentOrders = orders.slice(0, 6);
-      const recentMessages = (msgsRes.data || []) as DbContactMessage[];
+      const msgs = (msgsRes.data || []) as DbContactMessage[];
+      const recentMessages = msgs.slice(0, 6);
 
       return {
         totalProducts,
@@ -1161,8 +1388,18 @@ export const api = {
         recentMessages,
       };
     } catch (e) {
-      console.warn("Supabase getDashboardStats exception, falling back to mock:", e);
-      return this.getMockDashboardStats();
+      console.warn("Supabase getDashboardStats exception:", e);
+      return {
+        totalProducts: 0,
+        activeProducts: 0,
+        lowStockCount: 0,
+        totalCustomers: 0,
+        totalOrders: 0,
+        pendingOrders: 0,
+        totalRevenue: 0,
+        recentOrders: [],
+        recentMessages: [],
+      };
     }
   },
 

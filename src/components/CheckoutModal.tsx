@@ -181,7 +181,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <div className="flex items-start gap-3 bg-parchment p-3.5 border border-ink/15">
                     <ShieldCheck size={18} className="text-chartreuse shrink-0 mt-0.5" />
                     <p className="font-mono text-xs text-graphite leading-relaxed">
-                      <span className="font-bold text-ink uppercase">Zero Online Payment Gateway:</span> Orders are registered directly into our studio database. Invoicing or bespoke collection details are dispatched directly to your contact email.
+                      <span className="font-bold text-ink uppercase">Zero Online Payment Gateway:</span> Orders are registered directly with our atelier. Order confirmation and bespoke collection details are dispatched directly to your contact email.
                     </p>
                   </div>
 

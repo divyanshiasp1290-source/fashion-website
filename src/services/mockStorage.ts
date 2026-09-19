@@ -450,122 +450,125 @@ const INITIAL_INVENTORY: DbInventory[] = [
   { id: "inv-33", product_id: "prod-14", size: "EU 42", color: "Matte Noir", stock_quantity: 15, low_stock_threshold: 5 },
 ];
 
-// Initial Seed Orders
+// Initial Seed Orders (Contains only real customer orders, NO fake mock orders)
 const INITIAL_ORDERS: DbOrder[] = [
   {
-    id: "ord-1",
-    order_number: "MM-2026-8801",
-    subtotal: 425.0,
-    shipping: 0.0,
-    total: 425.0,
-    customer_name: "Camille Laurent",
-    customer_email: "camille.laurent@ateliermakeeva.fr",
-    customer_phone: "+33 6 12 34 56 78",
+    id: "e7b91c24-5d31-4a8f-9a12-8e3b4d1c9265",
+    customer_id: "5d25079e-6259-41c4-907a-aa2bd1c04403",
+    order_number: "MM-2026-9265",
+    subtotal: 535,
+    shipping: 0,
+    total: 535,
+    customer_name: "divyanshi singh",
+    customer_email: "divyanshiasp1290@gmail.com",
+    customer_phone: "+1 3456789463",
     shipping_address: {
-      name: "Camille Laurent",
-      address: "14 Avenue Montaigne",
-      city: "Paris",
-      postal_code: "75008",
+      city: "Franklin Square",
+      name: "divyanshi singh",
+      phone: "+1 3456789463",
+      address: "752 Hempstead Turnpike",
       country: "France",
-      phone: "+33 6 12 34 56 78",
+      postal_code: "11010",
+    },
+    order_status: "Processing",
+    created_at: "2026-09-18T10:00:00.000Z",
+    updated_at: "2026-09-18T10:00:00.000Z",
+    items: [
+      {
+        id: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b9265",
+        order_id: "e7b91c24-5d31-4a8f-9a12-8e3b4d1c9265",
+        product_id: "d0000000-0000-0000-0000-000000000008",
+        product_name: "MM Agendia 007 Duffle Bag UNISEX",
+        quantity: 1,
+        size: "OS",
+        color: "Default",
+        price: 535,
+        image_url: "https://www.maisonmakeeva.com/cdn/shop/files/D59A0055_1024x.jpg?v=1761559327",
+      },
+    ],
+  },
+  {
+    id: "f8c92d35-6e42-4b9a-ab23-9f4c5e2d8671",
+    customer_id: "5d25079e-6259-41c4-907a-aa2bd1c04403",
+    order_number: "MM-2026-8671",
+    subtotal: 165,
+    shipping: 0,
+    total: 165,
+    customer_name: "divyanshi singh",
+    customer_email: "divyanshiasp1290@gmail.com",
+    customer_phone: "+1 3456789463",
+    shipping_address: {
+      city: "Franklin Square",
+      name: "divyanshi singh",
+      phone: "+1 3456789463",
+      address: "752 Hempstead Turnpike",
+      country: "France",
+      postal_code: "11010",
+    },
+    order_status: "Delivered",
+    created_at: "2026-09-18T09:45:00.000Z",
+    updated_at: "2026-09-18T09:45:00.000Z",
+    items: [
+      {
+        id: "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c8671",
+        order_id: "f8c92d35-6e42-4b9a-ab23-9f4c5e2d8671",
+        product_id: null,
+        product_name: "MM Sculptural Pleated Mini Skirt",
+        quantity: 1,
+        size: "S",
+        color: "Default",
+        price: 165,
+        image_url: "https://www.maisonmakeeva.com/cdn/shop/files/D59A9664_52989f29-4f2f-4fa5-8112-24d611e627ea_1024x.jpg?v=1761580112",
+      },
+    ],
+  },
+  {
+    id: "f91b63fd-c2ea-49a9-8de4-5525becc8a6e",
+    customer_id: "5d25079e-6259-41c4-907a-aa2bd1c04403",
+    order_number: "MM-2026-3401",
+    subtotal: 1070,
+    shipping: 0,
+    total: 1070,
+    customer_name: "divyanshi",
+    customer_email: "divyanshiasp1290@gmail.com",
+    customer_phone: "+1 3456789463",
+    shipping_address: {
+      city: "Franklin Square",
+      name: "divyanshi",
+      phone: "+1 3456789463",
+      address: "752 Hempstead Turnpike",
+      country: "France",
+      postal_code: "11010",
     },
     order_status: "Confirmed",
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    created_at: "2026-09-09T05:14:56.943Z",
+    updated_at: "2026-09-18T09:33:56.882Z",
     items: [
       {
-        id: "item-1",
-        order_id: "ord-1",
-        product_id: "prod-1",
-        product_name: "MM Orion202 Stonewashed Denim Set",
-        quantity: 1,
-        size: "M",
-        color: "Washed indigo",
-        price: 250.0,
-        image_url: "https://www.maisonmakeeva.com/cdn/shop/files/D59A0120_1024x.jpg?v=1763739028",
-      },
-      {
-        id: "item-2",
-        order_id: "ord-1",
-        product_id: "prod-3",
-        product_name: "MM Bovinille -101 TRACKSUIT SET UNISEX",
-        quantity: 1,
-        size: "M",
-        color: "Deep bleach",
-        price: 175.0,
-        image_url: "https://www.maisonmakeeva.com/cdn/shop/files/D59A9978_1024x.jpg?v=1763606451",
-      },
-    ],
-  },
-  {
-    id: "ord-2",
-    order_number: "MM-2026-8802",
-    subtotal: 250.0,
-    shipping: 0.0,
-    total: 250.0,
-    customer_name: "Marcus Sterling",
-    customer_email: "marcus.sterling@editorial.co.uk",
-    customer_phone: "+44 7700 900123",
-    shipping_address: {
-      name: "Marcus Sterling",
-      address: "22 King Street",
-      city: "Manchester",
-      postal_code: "M2 4LQ",
-      country: "United Kingdom",
-      phone: "+44 7700 900123",
-    },
-    order_status: "Pending",
-    created_at: new Date(Date.now() - 4 * 3600000).toISOString(),
-    items: [
-      {
-        id: "item-3",
-        order_id: "ord-2",
-        product_id: "prod-4",
-        product_name: "MM NTOUBE-302 TRACKSUIT SET UNISEX",
-        quantity: 1,
-        size: "L",
-        color: "Noir velvet",
-        price: 250.0,
-        image_url: "https://www.maisonmakeeva.com/cdn/shop/files/D59A9818_b34e4184-86c5-45ac-a25a-e18704e91632_1024x.jpg?v=1763737823",
+        id: "93ec0437-e7f8-4736-8b89-8b5d198f382e",
+        order_id: "f91b63fd-c2ea-49a9-8de4-5525becc8a6e",
+        product_id: "d0000000-0000-0000-0000-000000000008",
+        product_name: "MM Agendia 007 Duffle Bag UNISEX",
+        quantity: 2,
+        size: "OS",
+        color: "Default",
+        price: 535,
+        image_url: "https://www.maisonmakeeva.com/cdn/shop/files/D59A0055_1024x.jpg?v=1761559327",
       },
     ],
   },
 ];
 
-// Initial Seed Customers
+// Initial Seed Customers (Only Real Master Admin)
 const INITIAL_CUSTOMERS: DbCustomer[] = [
-  { id: "cust-1", email: "admin@maisonmakeeva.com", full_name: "Atelier Director", role: "admin", status: "active", created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
-  { id: "cust-2", email: "camille.laurent@ateliermakeeva.fr", full_name: "Camille Laurent", phone: "+33 6 12 34 56 78", role: "customer", status: "active", created_at: new Date(Date.now() - 14 * 86400000).toISOString() },
-  { id: "cust-3", email: "marcus.sterling@editorial.co.uk", full_name: "Marcus Sterling", phone: "+44 7700 900123", role: "customer", status: "active", created_at: new Date(Date.now() - 7 * 86400000).toISOString() },
+  { id: "cust-1", email: "admin@maisonmakeeva.com", full_name: "Atelier Director", role: "admin", status: "active", created_at: new Date().toISOString() },
 ];
 
-// Initial Seed Contact Messages
-const INITIAL_CONTACT: DbContactMessage[] = [
-  {
-    id: "msg-1",
-    name: "Jean-Paul Dubois",
-    email: "jp.dubois@parisfashion.com",
-    phone: "+33 1 42 68 55 00",
-    message: "Inquiry regarding custom atelier fitting for Paris Fashion Week private presentation.",
-    status: "unread",
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "msg-2",
-    name: "Aria Vance",
-    email: "aria.v@monograph.nyc",
-    phone: "+1 212 555 0199",
-    message: "Editorial archive loan request for upcoming contemporary African design exhibition in New York.",
-    status: "read",
-    created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-  },
-];
+// Initial Seed Contact Messages (Empty - Only Real Submissions Displayed)
+const INITIAL_CONTACT: DbContactMessage[] = [];
 
-// Initial Seed Newsletter
-const INITIAL_NEWSLETTER: DbNewsletterSubscriber[] = [
-  { id: "sub-1", email: "collector@archiveluxury.com", status: "active", subscribed_at: new Date(Date.now() - 5 * 86400000).toISOString() },
-  { id: "sub-2", email: "atelier.client@hautecouture.fr", status: "active", subscribed_at: new Date(Date.now() - 2 * 86400000).toISOString() },
-  { id: "sub-3", email: "studio@resn-contemporary.org", status: "active", subscribed_at: new Date(Date.now() - 10 * 86400000).toISOString() },
-];
+// Initial Seed Newsletter (Empty - Only Real Subscribers Displayed)
+const INITIAL_NEWSLETTER: DbNewsletterSubscriber[] = [];
 
 class MockStorageManager {
   private getItem<T>(key: string, defaultVal: T): T {
@@ -598,17 +601,56 @@ class MockStorageManager {
     if (!localStorage.getItem(STORAGE_KEYS.INVENTORY)) {
       this.setItem(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.ORDERS)) {
+    // Purge legacy fake seed data or normalize 00000000- ids from localStorage
+    const storedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
+    if (storedOrders && (storedOrders.includes("MM-2026-8801") || storedOrders.includes("Camille Laurent") || storedOrders.includes("00000000-"))) {
+      try {
+        let orders = JSON.parse(storedOrders);
+        if (Array.isArray(orders)) {
+          orders = orders
+            .filter((o: any) => o.order_number !== "MM-2026-8801" && !o.customer_name?.includes("Camille"))
+            .map((o: any) => {
+              let id = o.id;
+              if (id === "00000000-0000-4000-a000-000000009265") id = "e7b91c24-5d31-4a8f-9a12-8e3b4d1c9265";
+              if (id === "00000000-0000-4000-a000-000000008671") id = "f8c92d35-6e42-4b9a-ab23-9f4c5e2d8671";
+              const items = (o.items || []).map((it: any) => {
+                let itId = it.id;
+                if (itId === "00000000-0000-4000-b000-000000009265") itId = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b9265";
+                if (itId === "00000000-0000-4000-b000-000000008671") itId = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c8671";
+                return { ...it, id: itId, order_id: id };
+              });
+              return { ...o, id, items };
+            });
+          this.setItem(STORAGE_KEYS.ORDERS, orders.length > 0 ? orders : INITIAL_ORDERS);
+        } else {
+          this.setItem(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
+        }
+      } catch {
+        this.setItem(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
+      }
+    } else if (!storedOrders) {
       this.setItem(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CUSTOMERS)) {
+
+    const storedCustomers = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
+    if (storedCustomers && (storedCustomers.includes("camille.laurent") || storedCustomers.includes("cust-2"))) {
+      this.setItem(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
+    } else if (!storedCustomers) {
       this.setItem(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CONTACT)) {
-      this.setItem(STORAGE_KEYS.CONTACT, INITIAL_CONTACT);
+
+    const storedContact = localStorage.getItem(STORAGE_KEYS.CONTACT);
+    if (storedContact && (storedContact.includes("Jean-Paul Dubois") || storedContact.includes("msg-1"))) {
+      this.setItem(STORAGE_KEYS.CONTACT, []);
+    } else if (!storedContact) {
+      this.setItem(STORAGE_KEYS.CONTACT, []);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.NEWSLETTER)) {
-      this.setItem(STORAGE_KEYS.NEWSLETTER, INITIAL_NEWSLETTER);
+
+    const storedNewsletter = localStorage.getItem(STORAGE_KEYS.NEWSLETTER);
+    if (storedNewsletter && (storedNewsletter.includes("collector@archiveluxury.com") || storedNewsletter.includes("sub-1"))) {
+      this.setItem(STORAGE_KEYS.NEWSLETTER, []);
+    } else if (!storedNewsletter) {
+      this.setItem(STORAGE_KEYS.NEWSLETTER, []);
     }
   }
 
@@ -828,7 +870,21 @@ class MockStorageManager {
   // --- ORDERS ---
   public getOrders(): DbOrder[] {
     this.init();
-    return this.getItem(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
+    const list = this.getItem(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
+    return list;
+  }
+
+  public saveOrder(order: DbOrder): DbOrder {
+    this.init();
+    const list = this.getOrders();
+    const idx = list.findIndex((o) => o.id === order.id || o.order_number === order.order_number);
+    if (idx >= 0) {
+      list[idx] = order;
+    } else {
+      list.unshift(order);
+    }
+    this.setItem(STORAGE_KEYS.ORDERS, list);
+    return order;
   }
 
   public createOrder(order: CreateOrderPayload): DbOrder {
@@ -865,7 +921,7 @@ class MockStorageManager {
   public updateOrderStatus(id: string, status: DbOrder["order_status"]): DbOrder | null {
     this.init();
     const list = this.getOrders();
-    const idx = list.findIndex((o) => o.id === id);
+    const idx = list.findIndex((o) => o.id === id || o.order_number === id);
     if (idx >= 0) {
       list[idx].order_status = status;
       list[idx].updated_at = new Date().toISOString();
@@ -878,7 +934,7 @@ class MockStorageManager {
   public deleteOrder(id: string): void {
     this.init();
     const list = this.getOrders();
-    this.setItem(STORAGE_KEYS.ORDERS, list.filter((o) => o.id !== id));
+    this.setItem(STORAGE_KEYS.ORDERS, list.filter((o) => o.id !== id && o.order_number !== id));
   }
 
   // --- CUSTOMERS ---
@@ -936,6 +992,12 @@ class MockStorageManager {
       return list[idx];
     }
     return null;
+  }
+
+  public deleteCustomer(id: string): void {
+    this.init();
+    const list = this.getCustomers();
+    this.setItem(STORAGE_KEYS.CUSTOMERS, list.filter((c) => c.id !== id));
   }
 
   // --- CONTACT MESSAGES ---

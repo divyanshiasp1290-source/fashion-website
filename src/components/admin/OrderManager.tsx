@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../../services/api";
+import { products as catalogProducts } from "../../data/catalog";
 import type { DbOrder, OrderStatus } from "../../types/database";
 import { formatMoney } from "../../utils";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
@@ -48,11 +49,33 @@ export const OrderManager: React.FC = () => {
   }, []);
 
   const handleStatusChange = async (orderId: string, status: OrderStatus) => {
-    const updated = await api.updateOrderStatus(orderId, status);
-    if (updated && selectedOrder?.id === orderId) {
-      setSelectedOrder(updated);
+    // 1. Optimistic UI update so the dropdown changes instantly with 0ms lag
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId || o.order_number === orderId ? { ...o, order_status: status } : o
+      )
+    );
+    if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.order_number === orderId)) {
+      setSelectedOrder((prev) => (prev ? { ...prev, order_status: status } : null));
     }
-    loadData();
+
+    // 2. Perform live Supabase update
+    try {
+      const updated = await api.updateOrderStatus(orderId, status);
+      if (updated) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === updated.id || o.order_number === updated.order_number ? updated : o
+          )
+        );
+        if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.order_number === orderId)) {
+          setSelectedOrder(updated);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      loadData();
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -60,10 +83,15 @@ export const OrderManager: React.FC = () => {
     setIsDeleting(true);
     try {
       await api.deleteOrder(deleteTarget.id);
-      if (selectedOrder?.id === deleteTarget.id) {
+      setOrders((prev) =>
+        prev.filter((o) => o.id !== deleteTarget.id && o.order_number !== deleteTarget.id)
+      );
+      if (selectedOrder?.id === deleteTarget.id || selectedOrder?.order_number === deleteTarget.id) {
         setSelectedOrder(null);
       }
       setDeleteTarget(null);
+    } catch (err) {
+      console.error("Failed to delete order:", err);
       loadData();
     } finally {
       setIsDeleting(false);
@@ -183,37 +211,46 @@ export const OrderManager: React.FC = () => {
                 <td className="p-4 min-w-[280px]">
                   {order.items && order.items.length > 0 ? (
                     <div className="space-y-2">
-                      {order.items.map((item, idx) => (
-                        <div
-                          key={item.id || idx}
-                          className="flex items-center gap-3 bg-gray-50/80 p-2 border border-gray-200 rounded-xs"
-                        >
-                          {item.image_url ? (
-                            <img
-                              src={item.image_url}
-                              alt={item.product_name}
-                              className="h-12 w-10 object-cover bg-white border border-gray-200 shrink-0 shadow-2xs"
-                            />
-                          ) : (
-                            <div className="h-12 w-10 bg-white border border-gray-200 flex items-center justify-center shrink-0">
-                              <Package size={14} className="text-gray-400" />
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="font-bold text-ink text-xs truncate" title={item.product_name}>
-                              {item.product_name}
-                            </p>
-                            <div className="text-[10px] text-gray-500 flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-                              <span>Size: <strong className="text-gray-800">{item.size}</strong></span>
-                              {item.color && item.color !== "Default" && (
-                                <span>Color: <strong className="text-gray-800">{item.color}</strong></span>
-                              )}
-                              <span>Qty: <strong className="text-gray-800">{item.quantity}</strong></span>
-                              <span>Price: <strong className="text-gray-800">{formatMoney(item.price)}</strong></span>
+                      {order.items.map((item, idx) => {
+                        const itemImg =
+                          item.image_url ||
+                          catalogProducts.find(
+                            (p) =>
+                              (item.product_id && p.id === item.product_id) ||
+                              p.title.trim().toLowerCase() === item.product_name.trim().toLowerCase()
+                          )?.images[0];
+                        return (
+                          <div
+                            key={item.id || idx}
+                            className="flex items-center gap-3 bg-gray-50/80 p-2 border border-gray-200 rounded-xs"
+                          >
+                            {itemImg ? (
+                              <img
+                                src={itemImg}
+                                alt={item.product_name}
+                                className="h-12 w-10 object-cover bg-white border border-gray-200 shrink-0 shadow-2xs"
+                              />
+                            ) : (
+                              <div className="h-12 w-10 bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                                <Package size={14} className="text-gray-400" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-ink text-xs truncate" title={item.product_name}>
+                                {item.product_name}
+                              </p>
+                              <div className="text-[10px] text-gray-500 flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                <span>Size: <strong className="text-gray-800">{item.size}</strong></span>
+                                {item.color && item.color !== "Default" && (
+                                  <span>Color: <strong className="text-gray-800">{item.color}</strong></span>
+                                )}
+                                <span>Qty: <strong className="text-gray-800">{item.quantity}</strong></span>
+                                <span>Price: <strong className="text-gray-800">{formatMoney(item.price)}</strong></span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <span className="text-gray-400 italic">No items recorded</span>
@@ -335,20 +372,28 @@ export const OrderManager: React.FC = () => {
                   </span>
                 </div>
                 <div className="border border-gray-200 divide-y divide-gray-100 bg-white shadow-2xs">
-                  {selectedOrder.items?.map((item) => (
-                    <div key={item.id} className="p-4 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        {item.image_url ? (
-                          <img
-                            src={item.image_url}
-                            alt={item.product_name}
-                            className="h-16 w-14 object-cover bg-gray-100 border border-gray-200 shrink-0 shadow-2xs"
-                          />
-                        ) : (
-                          <div className="h-16 w-14 bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
-                            <Package size={18} className="text-gray-400" />
-                          </div>
-                        )}
+                  {selectedOrder.items?.map((item) => {
+                    const itemImg =
+                      item.image_url ||
+                      catalogProducts.find(
+                        (p) =>
+                          (item.product_id && p.id === item.product_id) ||
+                          p.title.trim().toLowerCase() === item.product_name.trim().toLowerCase()
+                      )?.images[0];
+                    return (
+                      <div key={item.id} className="p-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          {itemImg ? (
+                            <img
+                              src={itemImg}
+                              alt={item.product_name}
+                              className="h-16 w-14 object-cover bg-gray-100 border border-gray-200 shrink-0 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="h-16 w-14 bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                              <Package size={18} className="text-gray-400" />
+                            </div>
+                          )}
                         <div className="min-w-0">
                           <p className="font-bold text-ink text-xs sm:text-sm leading-snug">{item.product_name}</p>
                           <div className="text-[11px] text-gray-500 mt-1 space-y-0.5">
@@ -365,8 +410,9 @@ export const OrderManager: React.FC = () => {
                         {formatMoney(item.price * item.quantity)}
                       </span>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
               </div>
 
               {/* Financial Ledger Breakdown */}

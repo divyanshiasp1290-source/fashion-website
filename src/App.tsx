@@ -35,14 +35,14 @@ import { SignatureHero } from "./components/SignatureHero";
 import { collections as staticCollections, policies, products as staticProducts, categoryStructure, navGroups, archiveSections, type ArchiveSection, type Collection, type Product } from "./data/catalog";
 import { cx, formatMoney, getPrimaryProduct } from "./utils";
 import { AdminPanel } from "./components/admin/AdminPanel";
-import { CheckoutModal } from "./components/CheckoutModal";
+import { CheckoutPage } from "./components/CheckoutPage";
 import { MaisonMakeevaLogo } from "./components/MaisonMakeevaLogo";
 import { useAuth } from "./context/AuthContext";
 import { api } from "./services/api";
 import { mapDbCollectionToCatalogCollection, mapDbProductToCatalogProduct } from "./utils/catalogAdapter";
 import type { DbCategory, DbOrder } from "./types/database";
 
-type Page = "home" | "collection" | "product" | "lookbook" | "about" | "contact" | "search" | "wishlist" | "account" | "cart" | "admin";
+type Page = "home" | "collection" | "product" | "lookbook" | "about" | "contact" | "search" | "wishlist" | "account" | "cart" | "checkout" | "admin";
 
 type CartItem = {
   product: Product;
@@ -124,7 +124,6 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [curatorProduct, setCuratorProduct] = useState<Product | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product>(getPrimaryProduct(staticProducts));
   const [activeCategory, setActiveCategory] = useState<string>("All");
@@ -399,7 +398,8 @@ export default function App() {
       />
     ),
     account: <AccountPage go={go} />,
-    cart: <CartPage cart={cart} setCart={setCart} go={go} onCheckout={() => setCheckoutOpen(true)} />,
+    cart: <CartPage cart={cart} setCart={setCart} go={go} onCheckout={() => go("checkout")} />,
+    checkout: <CheckoutPage cart={cart} setCart={setCart} go={go} />,
     admin: <AdminPanel onBackToStore={() => go("home")} />,
   }[page];
 
@@ -443,7 +443,7 @@ export default function App() {
         mainCategories={activeMainCategories}
       />
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} go={go} products={activeProducts} />
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} go={go} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} go={go} onCheckout={() => { setCartOpen(false); go("checkout"); }} />
 
       {/* Curator Quick-View Specimen Modal */}
       <CuratorModal
@@ -452,17 +452,6 @@ export default function App() {
         onAddToCart={addToCart}
         isWishlisted={curatorProduct ? wishlist.includes(curatorProduct.id) : false}
         onToggleWishlist={toggleWishlist}
-      />
-
-      {/* Cashless Direct Atelier Order Placement Modal (Without Payment Gateway) */}
-      <CheckoutModal
-        open={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
-        cart={cart}
-        onOrderSuccess={() => {
-          setCart([]);
-          setCheckoutOpen(false);
-        }}
       />
 
       {/* Resn-Style Avant-Garde Brand Entrance Preloader */}
@@ -2241,12 +2230,13 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
       return;
     }
 
+    let isMounted = true;
+
     const fetchOrders = () => {
-      api.getOrders().then((all) => {
-        const mine = all.filter(
-          (o) => o.customer_id === user.id || o.customer_email.toLowerCase() === user.email.toLowerCase()
-        );
-        setMyOrders(mine);
+      api.getCustomerOrders(user.email, user.id).then((orders) => {
+        if (isMounted) {
+          setMyOrders(orders);
+        }
       });
     };
 
@@ -2256,8 +2246,37 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
       fetchOrders();
     });
 
+    const handleOrdersSync = (e?: any) => {
+      // 1. Instant zero-latency local update if event contains the updated order
+      const target = e?.detail?.new || e?.detail;
+      if (target && (target.order_number || target.id)) {
+        const updated = target as DbOrder;
+        setMyOrders((prev) =>
+          prev.map((o) =>
+            o.id === updated.id || o.order_number === updated.order_number
+              ? { ...o, order_status: updated.order_status, updated_at: updated.updated_at || new Date().toISOString() }
+              : o
+          )
+        );
+      }
+      // 2. Query Supabase for authoritative state
+      fetchOrders();
+    };
+
+    window.addEventListener("storage", handleOrdersSync);
+    window.addEventListener("client-orders-updated", handleOrdersSync);
+    window.addEventListener("mm-realtime-sync", handleOrdersSync);
+
+    // Live cloud auto-refresh every 2.5s while client is viewing orders
+    const pollInterval = setInterval(fetchOrders, 2500);
+
     return () => {
+      isMounted = false;
       unsubscribe();
+      clearInterval(pollInterval);
+      window.removeEventListener("storage", handleOrdersSync);
+      window.removeEventListener("client-orders-updated", handleOrdersSync);
+      window.removeEventListener("mm-realtime-sync", handleOrdersSync);
     };
   }, [user]);
 
@@ -2281,11 +2300,11 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
   };
 
   return (
-    <PageShell eyebrow="Client Portal" title="Maison Makeeva Account">
+    <PageShell eyebrow={user?.role === "admin" ? "Atelier Administration" : "Client Portal"} title="Maison Makeeva Account">
       {user ? (
-        <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-2 items-start">
           {/* Client Profile Box */}
-          <div className="bg-ivory p-6 sm:p-10 border border-ink/15 shadow-sm space-y-6">
+          <div className="h-fit bg-ivory p-6 sm:p-10 border border-ink/15 shadow-sm space-y-6">
             <div className="flex items-center justify-between border-b border-ink/10 pb-4">
               <div>
                 <span className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Active Dossier</span>
@@ -2293,36 +2312,74 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
                   {user.full_name || user.email}
                 </h3>
               </div>
-              <span className="bg-chartreuse text-ink font-mono text-xs px-2.5 py-1 uppercase font-bold">
-                Client
+              <span className={`font-mono text-xs px-2.5 py-1 uppercase font-bold ${
+                user.role === "admin"
+                  ? "bg-ink text-ivory border border-ink"
+                  : "bg-chartreuse text-ink"
+              }`}>
+                {user.role === "admin" ? "Admin" : "Client"}
               </span>
             </div>
 
             <div className="font-mono text-xs space-y-2 text-graphite">
               <p><span className="text-taupe uppercase">Email:</span> {user.email}</p>
-              <p><span className="text-taupe uppercase">Membership Status:</span> Active Atelier Member</p>
+              <p>
+                <span className="text-taupe uppercase">Membership Status:</span>{" "}
+                {user.role === "admin" ? "Atelier Director (Administrator)" : "Active Atelier Member"}
+              </p>
             </div>
+
+            {user.role === "admin" && (
+              <button
+                onClick={() => go("admin")}
+                className="w-full bg-ink text-ivory py-3 font-mono text-xs uppercase tracking-wider hover:bg-ink/85 transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              >
+                <span>Enter Atelier Admin Panel →</span>
+              </button>
+            )}
 
             <button
               onClick={logout}
-              className="w-full border border-ink/20 py-3 font-mono text-xs uppercase tracking-wider hover:bg-ink hover:text-ivory transition"
+              className="w-full border border-ink/20 py-3 font-mono text-xs uppercase tracking-wider hover:bg-ink hover:text-ivory transition cursor-pointer"
             >
-              Sign Out of Client Archive
+              {user.role === "admin" ? "Sign Out of Admin Session" : "Sign Out of Client Archive"}
             </button>
           </div>
 
           {/* Historical Order Tracking */}
           <div className="bg-parchment p-6 sm:p-10 border border-ink/15 shadow-sm space-y-5">
-            <div>
-              <span className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Order Tracking</span>
-              <h3 className="font-display text-xl uppercase font-bold text-ink mt-1">
-                Your Atelier Orders ({myOrders.length})
-              </h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-mono text-xs uppercase tracking-wideLuxury text-taupe">Order Tracking</span>
+                <h3 className="font-display text-xl uppercase font-bold text-ink mt-1">
+                  {user.role === "admin" ? "Personal Orders" : "Your Atelier Orders"} ({myOrders.length})
+                </h3>
+              </div>
+              {user.role === "admin" && (
+                <button
+                  onClick={() => go("admin")}
+                  className="font-mono text-[11px] uppercase tracking-wider text-ink border border-ink/30 px-2.5 py-1 hover:bg-ink hover:text-ivory transition cursor-pointer"
+                >
+                  All Store Orders →
+                </button>
+              )}
             </div>
 
             {myOrders.length === 0 ? (
-              <div className="p-6 border border-ink/10 bg-ivory text-center font-mono text-xs text-taupe">
-                No orders registered under this client email yet.
+              <div className="p-6 border border-ink/10 bg-ivory text-center font-mono text-xs text-taupe space-y-3">
+                <p>
+                  {user.role === "admin"
+                    ? "No personal orders registered under this admin email yet."
+                    : "No orders registered under this client email yet."}
+                </p>
+                {user.role === "admin" && (
+                  <button
+                    onClick={() => go("admin")}
+                    className="inline-block bg-ink text-ivory px-4 py-2 uppercase tracking-wider text-[11px] font-bold hover:bg-ink/85 transition cursor-pointer"
+                  >
+                    View All Client Orders in Admin Panel
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
@@ -2335,7 +2392,19 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-chartreuse">{formatMoney(ord.total)}</p>
-                        <span className="text-[9px] uppercase px-1.5 py-0.2 border border-ink/20 font-semibold">
+                        <span
+                          className={`text-[9px] uppercase px-1.5 py-0.5 border font-semibold tracking-wider ${
+                            ord.order_status?.toLowerCase() === "confirmed" || ord.order_status?.toLowerCase() === "processing"
+                              ? "bg-blue-50 text-blue-800 border-blue-300"
+                              : ord.order_status?.toLowerCase() === "shipped"
+                              ? "bg-purple-50 text-purple-800 border-purple-300"
+                              : ord.order_status?.toLowerCase() === "delivered"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                              : ord.order_status?.toLowerCase() === "cancelled"
+                              ? "bg-rose-50 text-rose-800 border-rose-300"
+                              : "bg-amber-50 text-amber-800 border-amber-300"
+                          }`}
+                        >
                           {ord.order_status}
                         </span>
                       </div>
@@ -2344,19 +2413,27 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
                     {/* Client Order Items with Image and Details */}
                     {ord.items && ord.items.length > 0 && (
                       <div className="space-y-1.5 pt-1">
-                        {ord.items.map((item, iIdx) => (
-                          <div key={item.id || iIdx} className="flex items-center gap-2.5 bg-[#f5f4ef] p-1.5 border border-ink/10">
-                            {item.image_url ? (
-                              <img
-                                src={item.image_url}
-                                alt={item.product_name}
-                                className="h-10 w-8 object-cover border border-ink/10 shrink-0"
-                              />
-                            ) : (
-                              <div className="h-10 w-8 bg-ink/5 border border-ink/10 flex items-center justify-center shrink-0 text-[10px] text-taupe font-bold">
-                                MM
-                              </div>
-                            )}
+                        {ord.items.map((item, iIdx) => {
+                          const itemImg =
+                            item.image_url ||
+                            staticProducts.find(
+                              (p) =>
+                                (item.product_id && p.id === item.product_id) ||
+                                p.title.toLowerCase() === item.product_name.toLowerCase()
+                            )?.images[0];
+                          return (
+                            <div key={item.id || iIdx} className="flex items-center gap-2.5 bg-[#f5f4ef] p-1.5 border border-ink/10">
+                              {itemImg ? (
+                                <img
+                                  src={itemImg}
+                                  alt={item.product_name}
+                                  className="h-10 w-8 object-cover border border-ink/10 shrink-0"
+                                />
+                              ) : (
+                                <div className="h-10 w-8 bg-ink/5 border border-ink/10 flex items-center justify-center shrink-0 text-[10px] text-taupe font-bold">
+                                  MM
+                                </div>
+                              )}
                             <div className="min-w-0 flex-1">
                               <p className="font-bold text-ink text-[11px] truncate">{item.product_name}</p>
                               <p className="text-[10px] text-taupe">
@@ -2369,7 +2446,8 @@ function AccountPage({ go }: { go: (page: Page) => void }) {
                               </p>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -2541,7 +2619,7 @@ function CartContent({
           Proceed to Atelier Order Placement
         </button>
         <p className="mt-3 sm:mt-4 font-mono text-xs leading-relaxed text-taupe">
-          Direct atelier order registration. Invoicing or bespoke collection details are confirmed directly without online payment processing.
+          Direct atelier order registration. Order confirmation and bespoke collection details are confirmed directly without online payment processing.
         </p>
       </aside>
     </div>

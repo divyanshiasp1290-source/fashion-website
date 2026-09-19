@@ -6,6 +6,7 @@ import {
   Phone,
   Search,
   ShoppingBag,
+  Trash2,
   UserCheck,
   Users,
   X,
@@ -14,6 +15,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../../services/api";
 import type { DbCustomer, DbOrder } from "../../types/database";
 import { formatMoney } from "../../utils";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 
 export const CustomerManager: React.FC = () => {
   const [customers, setCustomers] = useState<DbCustomer[]>([]);
@@ -22,6 +24,8 @@ export const CustomerManager: React.FC = () => {
 
   const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<DbCustomer | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -54,6 +58,21 @@ export const CustomerManager: React.FC = () => {
       setSelectedCustomer(updated);
     }
     loadData();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await api.deleteCustomer(deleteTarget.id);
+      if (selectedCustomer?.id === deleteTarget.id) {
+        setSelectedCustomer(null);
+      }
+      setDeleteTarget(null);
+      loadData();
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -116,7 +135,20 @@ export const CustomerManager: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((cust) => {
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-gray-400 font-mono text-xs">
+                  Loading client registry...
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-gray-400 font-mono text-xs">
+                  No clients match search criteria.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((cust) => {
               const placed = orders.filter(
                 (o) => o.customer_id === cust.id || o.customer_email.toLowerCase() === cust.email.toLowerCase()
               );
@@ -167,10 +199,19 @@ export const CustomerManager: React.FC = () => {
                       <Eye size={13} />
                       <span>Profile</span>
                     </button>
+                    {cust.email !== "admin@maisonmakeeva.com" && (
+                      <button
+                        onClick={() => setDeleteTarget({ id: cust.id, name: cust.full_name || cust.email })}
+                        className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition inline-flex items-center gap-1"
+                        title="Delete Client"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
-            })}
+            }))}
           </tbody>
         </table>
       </div>
@@ -260,17 +301,32 @@ export const CustomerManager: React.FC = () => {
               </div>
 
               {/* Account Toggle */}
-              <div className="pt-4 border-t border-gray-200 flex items-center justify-between">
-                <button
-                  onClick={() => handleToggleStatus(selectedCustomer.id)}
-                  className={`px-4 py-2 uppercase font-bold border transition text-xs shadow-2xs ${
-                    selectedCustomer.status === "active"
-                      ? "border-rose-300 text-rose-700 hover:bg-rose-50"
-                      : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                  }`}
-                >
-                  {selectedCustomer.status === "active" ? "Suspend Account" : "Activate Account"}
-                </button>
+              <div className="pt-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleStatus(selectedCustomer.id)}
+                    className={`px-4 py-2 uppercase font-bold border transition text-xs shadow-2xs ${
+                      selectedCustomer.status === "active"
+                        ? "border-rose-300 text-rose-700 hover:bg-rose-50"
+                        : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    }`}
+                  >
+                    {selectedCustomer.status === "active" ? "Suspend Account" : "Activate Account"}
+                  </button>
+                  {selectedCustomer.email !== "admin@maisonmakeeva.com" && (
+                    <button
+                      onClick={() => {
+                        const target = { id: selectedCustomer.id, name: selectedCustomer.full_name || selectedCustomer.email };
+                        setSelectedCustomer(null);
+                        setDeleteTarget(target);
+                      }}
+                      className="px-3 py-2 uppercase font-bold border border-rose-200 text-rose-600 hover:bg-rose-50 transition text-xs shadow-2xs inline-flex items-center gap-1"
+                    >
+                      <Trash2 size={13} />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
                 <button
                   onClick={() => setSelectedCustomer(null)}
                   className="bg-gray-100 hover:bg-gray-200 border border-gray-300 px-5 py-2 uppercase font-bold text-gray-800 transition text-xs shadow-2xs"
@@ -282,6 +338,18 @@ export const CustomerManager: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Popup */}
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Client Dossier"
+        message="Are you sure you want to permanently delete this client dossier? This action cannot be undone."
+        itemName={deleteTarget ? `Client: ${deleteTarget.name}` : undefined}
+        confirmLabel="Delete Client"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setDeleteTarget(null)}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

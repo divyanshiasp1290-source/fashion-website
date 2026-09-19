@@ -63,11 +63,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     async function checkSession() {
+      const saved = typeof window !== "undefined" ? localStorage.getItem(LOCAL_AUTH_KEY) : null;
+      let localUser: AuthUser | null = null;
+      if (saved) {
+        try {
+          localUser = JSON.parse(saved);
+          if (localUser?.email?.toLowerCase() === "divyanshiasp1290@gmail.com") {
+            localUser.role = "customer";
+            localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(localUser));
+          }
+        } catch {}
+      }
+
       if (isSupabaseConfigured()) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
+
+          // If the user explicitly logged in as a client, maintain client session
+          if (localUser && localUser.role === "customer") {
+            if (session?.user && session.user.email?.toLowerCase() === "admin@maisonmakeeva.com") {
+              supabase.auth.signOut().catch(() => {});
+            }
+            setUser(localUser);
+            setIsLoading(false);
+            return;
+          }
+
           if (session?.user) {
-            // Fetch customer profile from customers table
             const { data: customer } = await supabase
               .from("customers")
               .select("*")
@@ -76,55 +98,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             let role = (customer?.role as "admin" | "customer") || (session.user.user_metadata?.role as "admin" | "customer") || "customer";
 
-            // If divyanshiasp1290 had been set to admin erroneously, revert to customer
             if (session.user.email?.toLowerCase() === "divyanshiasp1290@gmail.com" && role === "admin") {
               role = "customer";
               supabase.from("customers").update({ role: "customer" }).eq("id", session.user.id).then();
             }
 
-            setUser({
+            const authedUser: AuthUser = {
               id: session.user.id,
               email: session.user.email || "",
               role,
               full_name: customer?.full_name || session.user.user_metadata?.full_name || session.user.email?.split("@")[0],
               phone: customer?.phone || "",
-            });
-          } else {
-            // Check for persistent dev override session
-            const saved = localStorage.getItem(LOCAL_AUTH_KEY);
-            if (saved) {
-              const parsed = JSON.parse(saved);
-              if (parsed?.email?.toLowerCase() === "divyanshiasp1290@gmail.com" && parsed?.role === "admin") {
-                parsed.role = "customer";
-                localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(parsed));
-              }
-              if (parsed?.email?.toLowerCase() === "admin@maisonmakeeva.com") {
-                parsed.role = "admin";
-                localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(parsed));
-              }
-              setUser(parsed);
-            }
+            };
+            setUser(authedUser);
+            localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(authedUser));
+          } else if (localUser) {
+            setUser(localUser);
           }
         } catch (e) {
           console.warn("Error fetching Supabase session:", e);
+          if (localUser) setUser(localUser);
         }
       } else {
-        // Mock mode session recovery
-        try {
-          const saved = localStorage.getItem(LOCAL_AUTH_KEY);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed?.email?.toLowerCase() === "divyanshiasp1290@gmail.com" && parsed?.role === "admin") {
-              parsed.role = "customer";
-              localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(parsed));
-            }
-            if (parsed?.email?.toLowerCase() === "admin@maisonmakeeva.com") {
-              parsed.role = "admin";
-              localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(parsed));
-            }
-            setUser(parsed);
-          }
-        } catch {}
+        if (localUser) setUser(localUser);
       }
       setIsLoading(false);
     }
@@ -133,6 +129,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (isSupabaseConfigured()) {
       const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        // Prevent background admin session from overwriting active client account
+        const saved = typeof window !== "undefined" ? localStorage.getItem(LOCAL_AUTH_KEY) : null;
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed?.role === "customer" && session?.user?.email?.toLowerCase() === "admin@maisonmakeeva.com") {
+              return;
+            }
+          } catch {}
+        }
+
         if (session?.user) {
           const { data: customer } = await supabase
             .from("customers")
@@ -147,13 +154,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             supabase.from("customers").update({ role: "customer" }).eq("id", session.user.id).then();
           }
 
-          setUser({
+          const resolvedUser: AuthUser = {
             id: session.user.id,
             email: session.user.email || "",
             role,
             full_name: customer?.full_name || session.user.user_metadata?.full_name,
             phone: customer?.phone || "",
-          });
+          };
+          setUser(resolvedUser);
+          localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(resolvedUser));
         }
       });
 
@@ -169,12 +178,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 1. Dedicated Atelier Director Master Admin Authentication
     if (cleanEmail === "admin@maisonmakeeva.com") {
       if (password === "_Admin@1290") {
-        const adminUser: AuthUser = {
+        let adminUser: AuthUser = {
           id: "admin-atelier-dir",
           email: "admin@maisonmakeeva.com",
           role: "admin",
           full_name: "Atelier Director",
         };
+
+        if (isSupabaseConfigured()) {
+          try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password: password,
+            });
+
+            if (!error && data?.user) {
+              adminUser = {
+                id: data.user.id,
+                email: data.user.email || cleanEmail,
+                role: "admin",
+                full_name: data.user.user_metadata?.full_name || "Atelier Director",
+              };
+            } else if (error) {
+              console.warn("Supabase admin auth signIn note:", error.message);
+            }
+          } catch (err: any) {
+            console.warn("Supabase admin auth exception:", err);
+          }
+        }
+
         setUser(adminUser);
         localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(adminUser));
         return { success: true, role: "admin" };
@@ -224,6 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mockRecord = mockList.find((c) => c.email.toLowerCase() === cleanEmail);
 
         if (localRecord && (!localRecord.password || localRecord.password === password)) {
+          supabase.auth.signOut().catch(() => {});
           const clientUser: AuthUser = {
             id: localRecord.id,
             email: cleanEmail,
@@ -237,6 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Check if customer is registered in mockStorage or Supabase customers table
         if (mockRecord) {
+          supabase.auth.signOut().catch(() => {});
           const clientUser: AuthUser = {
             id: mockRecord.id,
             email: cleanEmail,
@@ -250,6 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // If Supabase failed because email confirmation is required, let client in immediately
         if (error && error.message.toLowerCase().includes("email not confirmed")) {
+          supabase.auth.signOut().catch(() => {});
           const clientUser: AuthUser = {
             id: `cust-${Date.now()}`,
             email: cleanEmail,

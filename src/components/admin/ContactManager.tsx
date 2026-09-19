@@ -112,7 +112,11 @@ export const ContactManager: React.FC = () => {
 
       {/* Messages List */}
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="p-8 text-center border border-gray-200 bg-white text-gray-400 shadow-xs">
+            Loading contact inquiries...
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="p-8 text-center border border-gray-200 bg-white text-gray-400 shadow-xs">
             No contact messages match current filter criteria.
           </div>
